@@ -119,7 +119,8 @@ def generate_pdf(data, services, addresses):
     pdf.set_text_color(30, 60, 90)
     pdf.cell(0, 10, "Thank You For Your Business", ln=True, align="C")
 
-    return pdf.output(dest='S').encode('latin-1')
+    # CORRECCIÓN AQUÍ: Eliminado .encode()
+    return pdf.output(dest='S')
 
 # Función para mostrar el PDF
 def display_pdf(pdf_bytes):
@@ -201,16 +202,17 @@ if st.button("💾 SAVE TO NEON & GENERATE PDF"):
             "emisor_info": my_address, "client_name": c_name, "inv_num": inv_no,
             "date": hoy, "due_date": due_d.strftime("%m/%d/%Y"), "payable_to": my_payable
         }
+        # pdf_bytes ahora es un bytearray directo
         pdf_bytes = generate_pdf(pdf_info, st.session_state.service_rows, st.session_state.address_rows)
         
         st.success("Invoice saved and generated!")
         
-        # Botón de descarga
-        st.download_button("📥 Download PDF", data=pdf_bytes, file_name=f"Invoice_{inv_no}.pdf", mime="application/pdf")
+        # Botón de descarga (Casteamos bytearray a bytes para seguridad)
+        st.download_button("📥 Download PDF", data=bytes(pdf_bytes), file_name=f"Invoice_{inv_no}.pdf", mime="application/pdf")
         
         # --- APARTADO DE VISUALIZACIÓN ---
         st.subheader("📄 Preview")
-        display_pdf(pdf_bytes)
+        display_pdf(bytes(pdf_bytes))
         
     except Exception as e:
         st.error(f"Error: {e}")
