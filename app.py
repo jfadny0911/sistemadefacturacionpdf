@@ -3,6 +3,7 @@ from fpdf import FPDF
 from datetime import datetime
 import pandas as pd
 from sqlalchemy import text
+import base64
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Henrry's Garage | Professional System", layout="wide")
@@ -99,7 +100,6 @@ def generate_pdf(data, services, addresses):
     pdf.cell(60, 12, f" TOTAL: ${total_gral:,.2f}", fill=True, align="C", ln=1)
     
     # --- BLOQUE DE GARANTÍA CENTRADO AL FINAL ---
-    # Posicionar a 50mm del final de la página
     pdf.set_y(-55) 
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(30, 60, 90)
@@ -112,16 +112,20 @@ def generate_pdf(data, services, addresses):
         "and installation by HENRRY DOORS we are not responsible for damages or bad "
         "manipulation when opening or closing the garage door And 6 months in Opener"
     )
-    # Multi_cell con alineación centrada
     pdf.multi_cell(0, 5, warranty_text, align="C")
     
-    # Mensaje de cierre centrado
     pdf.ln(2)
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(30, 60, 90)
     pdf.cell(0, 10, "Thank You For Your Business", ln=True, align="C")
 
-    return pdf.output()
+    return pdf.output(dest='S').encode('latin-1')
+
+# Función para mostrar el PDF
+def display_pdf(pdf_bytes):
+    base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
+    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
+    st.markdown(pdf_display, unsafe_allow_html=True)
 
 # --- INTERFAZ STREAMLIT ---
 st.title("🛠️ Henrry's Garage Management System")
@@ -171,9 +175,12 @@ if st.button("➕ Add Another Service"):
     st.rerun()
 
 st.markdown("---")
+
+# PROCESO DE GUARDADO Y VISUALIZACIÓN
 if st.button("💾 SAVE TO NEON & GENERATE PDF"):
     hoy = datetime.now().strftime("%m/%d/%Y")
     try:
+        # Guardar en Neon
         with conn.session as session:
             all_addrs = " | ".join([a for a in st.session_state.address_rows if a.strip()])
             res = session.execute(text("""
@@ -188,13 +195,22 @@ if st.button("💾 SAVE TO NEON & GENERATE PDF"):
                         VALUES (:iid, :desc, :qty, :prc)
                     """), {"iid": invoice_id, "desc": s['desc'], "qty": int(s['qty']), "prc": float(s['price'])})
             session.commit()
-            
+        
+        # Generar PDF
         pdf_info = {
             "emisor_info": my_address, "client_name": c_name, "inv_num": inv_no,
             "date": hoy, "due_date": due_d.strftime("%m/%d/%Y"), "payable_to": my_payable
         }
         pdf_bytes = generate_pdf(pdf_info, st.session_state.service_rows, st.session_state.address_rows)
-        st.success("Invoice successfully saved!")
-        st.download_button("📥 Download Invoice PDF", data=bytes(pdf_bytes), file_name=f"Invoice_{inv_no}.pdf")
+        
+        st.success("Invoice saved and generated!")
+        
+        # Botón de descarga
+        st.download_button("📥 Download PDF", data=pdf_bytes, file_name=f"Invoice_{inv_no}.pdf", mime="application/pdf")
+        
+        # --- APARTADO DE VISUALIZACIÓN ---
+        st.subheader("📄 Preview")
+        display_pdf(pdf_bytes)
+        
     except Exception as e:
-        st.error(f"Error saving data: {e}")
+        st.error(f"Error: {e}")
