@@ -17,159 +17,140 @@ if 'address_rows' not in st.session_state:
 if 'service_rows' not in st.session_state:
     st.session_state.service_rows = [{"desc": "", "qty": 1, "price": 0.0}]
 
-# --- CLASE PDF PROFESIONAL CON DISEÑO VIVO Y ORDENADO ---
+# --- CLASE PDF PROFESIONAL (LÍMITES ESTRICTOS) ---
 class ModernInvoice(FPDF):
     def draw_header(self, data):
-        # Colores más vivos y modernos
-        self.azul_vivo = (22, 58, 105)    # Azul Navy vibrante
-        self.naranja_vivo = (255, 165, 0) # Naranja brillante/vivo
-        self.gris_fondo = (245, 245, 245) # Gris muy claro para fondos
+        self.azul_vivo = (22, 58, 105)    
+        self.naranja_vivo = (255, 165, 0) 
+        self.gris_fondo = (245, 245, 245) 
 
-        # 1. ENCABEZADO SUPERIOR (Fondo Azul Vivo)
+        # 1. ENCABEZADO SUPERIOR
         self.set_fill_color(*self.azul_vivo)
         self.rect(0, 0, 210, 50, 'F')
         
-        # Franja decorativa muy delgada arriba
         self.set_fill_color(*self.naranja_vivo)
         self.rect(0, 0, 210, 2, 'F')
 
-        # Logo (Fijado a la izquierda)
+        # Logo
         try:
             self.image("logo.png", 10, 6, 36) 
         except:
-            pass # Si no hay logo, no hace nada
+            pass
 
-        # Bloque de "Invoice To:" y Cliente (Separado del logo)
-        cliente_x = 52 # Empieza justo después del logo
+        # Bloque Cliente (Límite estricto de ancho a 65 para no chocar)
+        cliente_x = 52 
         self.set_xy(cliente_x, 8)
         self.set_font("Helvetica", "B", 16)
         self.set_text_color(255, 255, 255)
-        self.cell(0, 8, "HENRRY'S GARAGE DOOR SERVICE", ln=True)
+        self.cell(65, 8, "HENRRY'S GARAGE", ln=False) 
         
-        self.set_xy(cliente_x, 20)
+        self.set_xy(cliente_x, 18)
         self.set_font("Helvetica", "B", 10)
-        self.set_text_color(*self.naranja_vivo) # Texto naranja para resaltar
-        self.cell(0, 5, "Invoice To:", ln=True)
+        self.set_text_color(*self.naranja_vivo) 
+        self.cell(65, 5, "Invoice To:", ln=False)
         
-        self.set_xy(cliente_x, 25)
+        self.set_xy(cliente_x, 23)
         self.set_font("Helvetica", "B", 11)
         self.set_text_color(255, 255, 255)
-        self.cell(0, 5, data['client_name'].upper(), ln=True)
+        self.cell(65, 5, data['client_name'].upper(), ln=False)
         
-        self.set_xy(cliente_x, 30)
+        self.set_xy(cliente_x, 28)
         self.set_font("Helvetica", "", 9)
-        # Limitamos el ancho a 60 para que no choque con la fecha
-        self.multi_cell(60, 4, data['project_addr'], align='L') 
+        self.multi_cell(65, 4, data['project_addr'], align='L') 
 
-        # Bloque Derecho (Título INVOICE y Detalles)
+        # Bloque INVOICE (Límite estricto a la derecha)
         detalles_x = 135
         self.set_xy(120, 8)
         self.set_font("Helvetica", "B", 40)
         self.set_text_color(*self.naranja_vivo)
-        self.cell(80, 15, "INVOICE", ln=True, align="R")
+        self.cell(80, 15, "INVOICE", ln=False, align="R")
         
         self.set_text_color(255, 255, 255)
         
-        # Invoice No.
         self.set_xy(detalles_x, 27)
         self.set_font("Helvetica", "", 10)
-        self.cell(30, 5, "Invoice No:")
+        self.cell(25, 5, "Invoice No:")
         self.set_font("Helvetica", "B", 10)
-        self.cell(35, 5, f"#{data['inv_num']}", align="R", ln=True)
+        self.cell(40, 5, f"#{data['inv_num']}", align="R", ln=False)
 
-        # Due Date
         self.set_xy(detalles_x, 32)
         self.set_font("Helvetica", "", 10)
-        self.cell(30, 5, "Due Date:")
+        self.cell(25, 5, "Due Date:")
         self.set_font("Helvetica", "B", 10)
-        self.cell(35, 5, f"{data['due_date']}", align="R", ln=True)
+        self.cell(40, 5, f"{data['due_date']}", align="R", ln=False)
 
-        # Invoice Date
         self.set_xy(detalles_x, 37)
         self.set_font("Helvetica", "", 10)
-        self.cell(30, 5, "Invoice Date:")
+        self.cell(25, 5, "Invoice Date:")
         self.set_font("Helvetica", "B", 10)
-        self.cell(35, 5, f"{data['date']}", align="R", ln=True)
+        self.cell(40, 5, f"{data['date']}", align="R", ln=False)
 
-        # 2. BARRA NARANJA VIVA (Dirección Emisor)
+        # 2. BARRA NARANJA (Una sola línea dinámica)
         self.set_fill_color(*self.naranja_vivo)
         self.rect(0, 50, 210, 12, 'F')
         
-        # Detalle de diseño: Cuadrito azul oscuro al inicio de la barra naranja
         self.set_fill_color(*self.azul_vivo)
         self.rect(0, 50, 8, 12, 'F')
 
         self.set_xy(15, 53)
         self.set_font("Helvetica", "B", 10)
-        self.set_text_color(*self.azul_vivo) # Letra azul sobre fondo naranja
-        self.cell(0, 6, data['emisor_info_one_line'])
+        self.set_text_color(*self.azul_vivo)
+        info_line = f"{data['address']} | {data['phone']} | {data['email']}"
+        self.cell(190, 6, info_line, ln=False)
 
-        # 3. DETALLES DE CONTACTO Y PAGO (Ordenados)
-        self.set_y(70)
+        # 3. DETALLES DE CONTACTO Y PAGO
         contacto_x = 15
+        label_w = 20
+        
+        self.set_xy(contacto_x, 68)
         self.set_font("Helvetica", "", 10)
         self.set_text_color(30, 30, 30)
-        label_w = 22
-        
-        # Extraer teléfono, email y dirección limpiamente
-        emisor_lines = data['emisor_info'].split('\n')
-        phone = ""
-        email = ""
-        address = ""
-        for line in emisor_lines:
-            if '(' in line and ')' in line and '-' in line: phone = line
-            elif '@' in line: email = line
-            else: address += line + " "
-
-        self.set_xy(contacto_x, 70)
         self.cell(label_w, 5, "Phone:")
         self.set_font("Helvetica", "B", 10)
-        self.cell(60, 5, phone, ln=True)
+        self.cell(60, 5, data['phone'], ln=False)
 
+        self.set_xy(contacto_x, 74)
         self.set_font("Helvetica", "", 10)
-        self.set_xy(contacto_x, 76)
         self.cell(label_w, 5, "Email:")
         self.set_font("Helvetica", "B", 10)
-        self.cell(60, 5, email, ln=True)
+        self.cell(60, 5, data['email'], ln=False)
 
+        self.set_xy(contacto_x, 80)
         self.set_font("Helvetica", "", 10)
-        self.set_xy(contacto_x, 82)
         self.cell(label_w, 5, "Address:")
         self.set_font("Helvetica", "B", 10)
-        self.multi_cell(75, 5, address.strip(), align='L')
+        self.multi_cell(75, 5, data['address'], align='L')
 
-        # Bloque Payment Method
         pago_x = 120
-        self.set_xy(pago_x, 70)
+        self.set_xy(pago_x, 68)
         self.set_font("Helvetica", "B", 12)
         self.set_text_color(*self.azul_vivo)
-        self.cell(0, 6, "PAYMENT METHOD", ln=True)
+        self.cell(80, 6, "PAYMENT METHOD", ln=False)
         
-        # Línea sutil debajo del título
         self.set_draw_color(*self.naranja_vivo)
         self.set_line_width(0.5)
-        self.line(pago_x, 76, pago_x + 45, 76)
+        self.line(pago_x, 74, pago_x + 45, 74)
 
-        self.set_font("Helvetica", "", 10)
+        label_pago = 30
         self.set_text_color(30, 30, 30)
-        label_pago = 35
-
-        self.set_xy(pago_x, 79)
+        
+        self.set_xy(pago_x, 77)
+        self.set_font("Helvetica", "", 10)
         self.cell(label_pago, 5, "Account No:")
         self.set_font("Helvetica", "B", 10)
-        self.cell(0, 5, data['inv_num'], ln=True)
+        self.cell(50, 5, data['inv_num'], ln=False)
 
+        self.set_xy(pago_x, 83)
         self.set_font("Helvetica", "", 10)
-        self.set_xy(pago_x, 85)
         self.cell(label_pago, 5, "Account Name:")
         self.set_font("Helvetica", "B", 10)
-        self.cell(0, 5, data['client_name'].upper(), ln=True)
+        self.cell(50, 5, data['client_name'].upper(), ln=False)
 
+        self.set_xy(pago_x, 89)
         self.set_font("Helvetica", "", 10)
-        self.set_xy(pago_x, 91)
         self.cell(label_pago, 5, "Branch Name:")
         self.set_font("Helvetica", "B", 10)
-        self.cell(0, 5, "HENRRY'S GARAGE", ln=True)
+        self.cell(50, 5, "HENRRY'S GARAGE", ln=False)
 
 def generate_pdf(data, services, addresses):
     project_addr_str = "\n".join([a for a in addresses if a.strip()])
@@ -179,12 +160,10 @@ def generate_pdf(data, services, addresses):
     
     header_data = data.copy()
     header_data['project_addr'] = project_addr_str
-    emisor_lines = data['emisor_info'].split('\n')
-    header_data['emisor_info_one_line'] = emisor_lines[0] + " | " + " ".join(emisor_lines[1:])
     
     pdf.draw_header(header_data)
     
-    # 4. TABLA DE SERVICIOS (Diseño limpio y vivo)
+    # 4. TABLA DE SERVICIOS
     pdf.set_y(105)
     pdf.set_fill_color(*pdf.azul_vivo)
     pdf.set_font("Helvetica", "B", 11)
@@ -194,7 +173,7 @@ def generate_pdf(data, services, addresses):
         {"name": "DESCRIPTION", "w": 100},
         {"name": "UNIT PRICE", "w": 35},
         {"name": "QTY", "w": 20},
-        {"name": "TOTAL", "w": 35} # Anchos ajustados para sumar 190
+        {"name": "TOTAL", "w": 35}
     ]
     
     current_x = 10
@@ -205,8 +184,7 @@ def generate_pdf(data, services, addresses):
         current_x += col['w']
     pdf.ln()
 
-    # Configuración de líneas de la tabla
-    pdf.set_draw_color(200, 200, 200) # Bordes grises sutiles
+    pdf.set_draw_color(200, 200, 200)
     pdf.set_line_width(0.3)
     pdf.set_text_color(30, 30, 30)
     pdf.set_font("Helvetica", "", 10)
@@ -219,7 +197,6 @@ def generate_pdf(data, services, addresses):
         total_gral += line_total
         current_x = 10
         
-        # Dibuja la fila
         for col in cols:
             val = ""
             if col['name'] == "DESCRIPTION": val = f" {s['desc']}"
@@ -230,7 +207,7 @@ def generate_pdf(data, services, addresses):
             align = "C" if col['name'] != "DESCRIPTION" else "L"
             
             pdf.set_xy(current_x, current_y)
-            pdf.cell(col['w'], 10, "", border='B') # Borde inferior
+            pdf.cell(col['w'], 10, "", border='B') 
             pdf.set_xy(current_x + (2 if col['name'] == "DESCRIPTION" else 0), current_y)
             pdf.cell(col['w'] - (2 if col['name'] == "DESCRIPTION" else 0), 10, val, align=align)
             
@@ -238,7 +215,7 @@ def generate_pdf(data, services, addresses):
         
         pdf.ln()
         current_y += 10
-        if current_y > 230: # Salto de página
+        if current_y > 230:
             pdf.add_page()
             current_y = 20
             pdf.set_y(current_y)
@@ -254,7 +231,6 @@ def generate_pdf(data, services, addresses):
     total_col_w = 40
     val_col_w = 40
     
-    # Cuadro gris para subtotales
     pdf.set_fill_color(*pdf.gris_fondo)
     pdf.rect(totals_x, totals_y - 2, 90, 25, 'F')
     
@@ -268,7 +244,6 @@ def generate_pdf(data, services, addresses):
         pdf.set_text_color(30, 30, 30)
         pdf.cell(val_col_w, 7, vals[i], align='R')
 
-    # Cuadro Azul Vivo para el TOTAL
     pdf.set_fill_color(*pdf.azul_vivo)
     pdf.rect(totals_x, totals_y + 23, 90, 14, 'F')
     
@@ -280,7 +255,6 @@ def generate_pdf(data, services, addresses):
     pdf.set_font("Helvetica", "B", 18)
     pdf.cell(val_col_w, 12, f"${total_gral:,.2f}", align='R')
 
-    # Términos y Condiciones
     pdf.set_y(totals_y - 2)
     pdf.set_x(10)
     
@@ -301,16 +275,14 @@ def generate_pdf(data, services, addresses):
     pdf.set_x(10)
     pdf.multi_cell(95, 5, terms_text, align="L")
     
-    # Gracias Centrado
     pdf.set_y(totals_y + 45)
     pdf.set_font("Helvetica", "B", 14)
     pdf.set_text_color(*pdf.azul_vivo)
     pdf.cell(0, 10, "THANK YOU FOR YOUR BUSINESS", ln=True, align="C")
 
-    # 6. PIE DE PÁGINA Y FIRMA (Diseño Geométrico Fijo)
+    # 6. PIE DE PÁGINA
     footer_y = 250
     
-    # Firma a la Derecha
     signature_x = 130
     pdf.set_draw_color(*pdf.azul_vivo)
     pdf.set_line_width(0.5)
@@ -326,11 +298,9 @@ def generate_pdf(data, services, addresses):
     pdf.set_x(signature_x)
     pdf.cell(70, 5, "Administrator", align='C')
 
-    # Diseño Geométrico Inferior
     pdf.set_fill_color(*pdf.azul_vivo)
     pdf.rect(0, 282, 210, 15, 'F')
     
-    # Franja naranja sobresaliendo en la esquina
     pdf.set_fill_color(*pdf.naranja_vivo)
     pdf.rect(0, 279, 100, 3, 'F')
     pdf.rect(170, 279, 40, 3, 'F')
@@ -345,9 +315,12 @@ def display_pdf(pdf_bytes):
 # --- INTERFAZ ---
 st.title("🛠️ Henrry's Garage System")
 
+# Barra lateral ahora limpia con 3 campos separados para evitar errores de lectura
 with st.sidebar:
     st.header("⚙️ My Business Info")
-    my_address = st.text_area("Your Header Info", "31411 Terri Ln, Magnolia, TX 77354\n(661) 648-6043 | alemanperez99@gmail.com")
+    my_address = st.text_input("Address", "31411 Terri Ln, Magnolia, TX 77354")
+    my_phone = st.text_input("Phone", "(661) 648-6043")
+    my_email = st.text_input("Email", "alemanperez99@gmail.com")
     my_payable = st.text_input("Payable to", "Henrry Perez")
 
 tab1, tab2 = st.tabs(["🆕 Create Invoice", "📜 Invoice History"])
@@ -402,7 +375,12 @@ with tab1:
                                         {"iid": invoice_id, "desc": s['desc'], "qty": int(s['qty']), "prc": float(s['price'])})
                 session.commit()
             
-            pdf_info = {"emisor_info": my_address, "client_name": c_name, "inv_num": inv_no, "date": hoy, "due_date": due_d.strftime("%m/%d/%Y"), "payable_to": my_payable}
+            # Pasando los datos limpios de la barra lateral
+            pdf_info = {
+                "address": my_address, "phone": my_phone, "email": my_email,
+                "client_name": c_name, "inv_num": inv_no, "date": hoy, 
+                "due_date": due_d.strftime("%m/%d/%Y"), "payable_to": my_payable
+            }
             pdf_bytes = generate_pdf(pdf_info, st.session_state.service_rows, st.session_state.address_rows)
             
             st.success("Saved! You can view it below or check the History tab.")
@@ -430,8 +408,10 @@ with tab2:
                         items_list = items_df.to_dict('records')
                         addr_list = str(row['project_addr']).split(" | ")
                         
+                        # Datos limpios para el historial
                         pdf_info_re = {
-                            "emisor_info": my_address, "client_name": row['cliente'], "inv_num": row['inv_num'],
+                            "address": my_address, "phone": my_phone, "email": my_email,
+                            "client_name": row['cliente'], "inv_num": row['inv_num'],
                             "date": row['fecha_hoy'], "due_date": row['fecha_hoy'], "payable_to": my_payable
                         }
                         re_pdf_bytes = generate_pdf(pdf_info_re, items_list, addr_list)
