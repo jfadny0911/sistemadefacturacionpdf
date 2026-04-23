@@ -12,7 +12,7 @@ conn = st.connection("gsheets", type=GSheetsConnection)
 
 class ModernInvoice(FPDF):
     def draw_header(self, data):
-        # Colores del logo 
+        # Colores del logo
         azul_oscuro = (30, 60, 90) 
         naranja = (220, 130, 50)  
 
@@ -20,14 +20,13 @@ class ModernInvoice(FPDF):
         self.set_fill_color(*azul_oscuro)
         self.rect(0, 0, 210, 50, 'F')
         
-        # 2. Línea naranja decorativa (Se dibuja PRIMERO para que quede atrás) 
+        # 2. Línea naranja decorativa (Se dibuja atrás del logo)
         self.set_draw_color(*naranja)
         self.set_line_width(1.2)
         self.line(0, 28, 110, 28)
 
-        # 3. Insertar el LOGO (ENCIMA de la línea) 
+        # 3. Insertar el LOGO
         try:
-            # Debe existir el archivo logo.png en tu repositorio de GitHub
             self.image("logo.png", 12, 8, 33) 
             self.set_xy(50, 15) 
         except:
@@ -55,7 +54,6 @@ def generate_pdf(data):
     naranja = (220, 130, 50)
     
     pdf.set_y(60)
-    # Bloque de información del cliente y factura 
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(120, 120, 120)
     pdf.cell(95, 5, "FACTURADO A:", ln=0)
@@ -75,7 +73,6 @@ def generate_pdf(data):
     
     pdf.ln(15)
 
-    # --- TABLA DE SERVICIOS [cite: 10, 11, 13] ---
     pdf.set_fill_color(*azul_oscuro)
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(255, 255, 255)
@@ -93,7 +90,6 @@ def generate_pdf(data):
     pdf.set_font("Helvetica", "B", 11)
     pdf.cell(35, 15, f"${data['total_p']}", border='B', fill=True, align="C", ln=1)
     
-    # --- TOTAL ---
     pdf.ln(10)
     pdf.set_x(130)
     pdf.set_font("Helvetica", "B", 14)
@@ -102,7 +98,6 @@ def generate_pdf(data):
     pdf.cell(30, 12, " TOTAL", fill=True, align="C")
     pdf.cell(40, 12, f"${data['total_p']} ", fill=True, align="R", ln=1)
 
-    # --- GARANTIA [cite: 17] ---
     pdf.ln(20)
     pdf.set_x(15)
     pdf.set_font("Helvetica", "B", 10)
@@ -127,7 +122,7 @@ def generate_pdf(data):
     return pdf.output()
 
 # --- INTERFAZ STREAMLIT ---
-st.title("🛠️ Henrry's Garage - Sistema Premium")
+st.title("🛠️ Henrry's Garage - Sistema de Facturación")
 
 tab1, tab2 = st.tabs(["Generar Factura", "Historial Google Sheets"])
 
@@ -137,25 +132,25 @@ with st.sidebar:
     except:
         st.info("Sube logo.png a GitHub.")
     st.header("Datos del Negocio")
-    e_nom = st.text_input("Empresa", "Henrry's Garage Door Service") [cite: 1]
-    e_dir = st.text_input("Direccion", "Magnolia Houston tx") [cite: 2, 3]
-    e_tel = st.text_input("Telefono", "(661)648-6043") [cite: 4]
-    e_eml = st.text_input("Email", "alemanperez99@gmail.com") [cite: 5]
+    e_nom = st.text_input("Empresa", "Henrry's Garage Door Service")
+    e_dir = st.text_input("Direccion", "Magnolia Houston tx")
+    e_tel = st.text_input("Telefono", "(661)648-6043")
+    e_eml = st.text_input("Email", "alemanperez99@gmail.com")
 
 with tab1:
     with st.form("main_form"):
         c1, c2, c3 = st.columns(3)
-        inv = c1.text_input("Invoice #", "005") [cite: 8]
-        clie = c2.text_input("Cliente", "The Woodlands Living") [cite: 8]
-        paga = c3.text_input("Pagar a", "Henrry Perez") [cite: 8]
+        inv = c1.text_input("Invoice #", "005")
+        clie = c2.text_input("Cliente", "The Woodlands Living")
+        paga = c3.text_input("Pagar a", "Henrry Perez")
         
-        proj = st.text_input("Direccion Proyecto", "4919 Curiosity Ct") [cite: 9]
-        serv = st.text_input("Descripcion del Trabajo", "Rail Repair in Genie Opener") [cite: 11]
+        proj = st.text_input("Direccion Proyecto", "4919 Curiosity Ct")
+        serv = st.text_input("Descripcion del Trabajo", "Rail Repair in Genie Opener")
         
         c4, c5 = st.columns(2)
-        qty = c4.number_input("Cantidad", min_value=1, value=1) [cite: 12]
-        prc = c5.number_input("Precio Unitario ($)", min_value=0.0, value=75.0) [cite: 13, 15]
-        vence = st.date_input("Fecha Vencimiento") [cite: 9]
+        qty = c4.number_input("Cantidad", min_value=1, value=1)
+        prc = c5.number_input("Precio Unitario ($)", min_value=0.0, value=75.0)
+        vence = st.date_input("Fecha Vencimiento")
         
         btn = st.form_submit_button("GUARDAR Y GENERAR")
 
@@ -181,5 +176,8 @@ with tab1:
 
 with tab2:
     if st.button("Actualizar Historial"):
-        df = conn.read(worksheet="Sheet1", ttl=0)
-        st.dataframe(df, use_container_width=True)
+        try:
+            df = conn.read(worksheet="Sheet1", ttl=0)
+            st.dataframe(df, use_container_width=True)
+        except:
+            st.error("Error al cargar datos. Revisa la conexión con Google Sheets.")
