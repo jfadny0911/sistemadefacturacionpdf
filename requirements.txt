@@ -3,4 +3,3 @@ fpdf2
 pandas
 psycopg2-binary
 sqlalchemy
-st-postgresql_connection
