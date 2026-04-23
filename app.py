@@ -11,12 +11,13 @@ st.set_page_config(page_title="Henrry's Garage | Professional System", layout="w
 # Conexión a Neon
 conn = st.connection("postgresql", type="sql")
 
+# Inicializar estados
 if 'address_rows' not in st.session_state:
     st.session_state.address_rows = [""]
 if 'service_rows' not in st.session_state:
     st.session_state.service_rows = [{"desc": "", "qty": 1, "price": 0.0}]
 
-# --- CLASE PDF PROFESIONAL ---
+# --- CLASE PDF ---
 class ModernInvoice(FPDF):
     def draw_header(self, data):
         azul_oscuro = (30, 60, 90) 
@@ -44,7 +45,6 @@ def generate_pdf(data, services, addresses):
     pdf.add_page()
     pdf.draw_header(data)
     
-    # Bloque de Cliente y Direcciones
     pdf.set_y(60)
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(100, 100, 100)
@@ -61,7 +61,6 @@ def generate_pdf(data, services, addresses):
             pdf.cell(5, 5, "- ", ln=0)
             pdf.multi_cell(90, 5, addr)
 
-    # Detalles de Factura
     pdf.set_y(60)
     pdf.set_x(120)
     pdf.set_font("Helvetica", "B", 10)
@@ -71,7 +70,6 @@ def generate_pdf(data, services, addresses):
     pdf.set_x(120)
     pdf.cell(0, 5, f"Due Date: {data['due_date']}", ln=True)
 
-    # Tabla de Servicios
     pdf.ln(15)
     pdf.set_fill_color(30, 60, 90)
     pdf.set_text_color(255, 255, 255)
@@ -91,7 +89,6 @@ def generate_pdf(data, services, addresses):
         pdf.cell(35, 10, f"${s['price']:,.2f}", border='B', align="C")
         pdf.cell(35, 10, f"${line_total:,.2f}", border='B', align="C", ln=1)
 
-    # Total Resaltado
     pdf.ln(8)
     pdf.set_x(140)
     pdf.set_font("Helvetica", "B", 14)
@@ -99,7 +96,6 @@ def generate_pdf(data, services, addresses):
     pdf.set_text_color(255, 255, 255)
     pdf.cell(60, 12, f" TOTAL: ${total_gral:,.2f}", fill=True, align="C", ln=1)
     
-    # --- BLOQUE DE GARANTÍA CENTRADO AL FINAL ---
     pdf.set_y(-55) 
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(30, 60, 90)
@@ -113,106 +109,118 @@ def generate_pdf(data, services, addresses):
         "manipulation when opening or closing the garage door And 6 months in Opener"
     )
     pdf.multi_cell(0, 5, warranty_text, align="C")
-    
-    pdf.ln(2)
-    pdf.set_font("Helvetica", "B", 11)
-    pdf.set_text_color(30, 60, 90)
     pdf.cell(0, 10, "Thank You For Your Business", ln=True, align="C")
 
-    # CORRECCIÓN AQUÍ: Eliminado .encode()
     return pdf.output(dest='S')
 
-# Función para mostrar el PDF
+# Función de visualización mejorada
 def display_pdf(pdf_bytes):
     base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-    pdf_display = f'<iframe src="data:application/pdf;base64,{base64_pdf}" width="100%" height="800" type="application/pdf"></iframe>'
+    # Usamos un objeto embebido que funciona mejor en Chrome/Safari
+    pdf_display = f'<embed src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf">'
     st.markdown(pdf_display, unsafe_allow_html=True)
 
-# --- INTERFAZ STREAMLIT ---
-st.title("🛠️ Henrry's Garage Management System")
+# --- INTERFAZ ---
+st.title("🛠️ Henrry's Garage System")
 
 with st.sidebar:
     st.header("⚙️ My Business Info")
     my_address = st.text_area("Your Header Info", "31411 Terri Ln, Magnolia, TX 77354\n(661) 648-6043 | alemanperez99@gmail.com")
     my_payable = st.text_input("Payable to", "Henrry Perez")
 
-with st.container():
-    st.subheader("👤 Invoice & Client Details")
-    c1, c2, c3 = st.columns([1, 2, 1])
-    inv_no = c1.text_input("Invoice #")
-    c_name = c2.text_input("Client Name")
-    due_d = c3.date_input("Due Date")
+# Pestañas para organizar la app
+tab1, tab2 = st.tabs(["🆕 Create Invoice", "📜 Invoice History (Memory)"])
 
-st.markdown("---")
-st.subheader("📍 Project Addresses")
-for i, addr in enumerate(st.session_state.address_rows):
-    col_input, col_action = st.columns([0.9, 0.1])
-    st.session_state.address_rows[i] = col_input.text_input(f"Address {i+1}", value=addr, key=f"addr_field_{i}")
-    if col_action.button("🗑️", key=f"del_addr_btn_{i}"):
-        st.session_state.address_rows.pop(i)
+with tab1:
+    with st.container():
+        st.subheader("👤 Invoice & Client Details")
+        c1, c2, c3 = st.columns([1, 2, 1])
+        inv_no = c1.text_input("Invoice #")
+        c_name = c2.text_input("Client Name")
+        due_d = c3.date_input("Due Date")
+
+    st.subheader("📍 Project Addresses")
+    for i, addr in enumerate(st.session_state.address_rows):
+        col_in, col_del = st.columns([0.9, 0.1])
+        st.session_state.address_rows[i] = col_in.text_input(f"Address {i+1}", value=addr, key=f"addr_{i}")
+        if col_del.button("🗑️", key=f"del_a_{i}"):
+            st.session_state.address_rows.pop(i)
+            st.rerun()
+    if st.button("➕ Add Address"):
+        st.session_state.address_rows.append("")
         st.rerun()
 
-if st.button("➕ Add Another Address"):
-    st.session_state.address_rows.append("")
-    st.rerun()
-
-st.markdown("---")
-st.subheader("📦 Services & Products")
-current_total = 0
-for i, serv in enumerate(st.session_state.service_rows):
-    c_desc, c_qty, c_price, c_del = st.columns([0.5, 0.15, 0.25, 0.1])
-    st.session_state.service_rows[i]['desc'] = c_desc.text_input("Description", value=serv['desc'], key=f"s_desc_{i}")
-    st.session_state.service_rows[i]['qty'] = c_qty.number_input("Qty", min_value=1, value=serv['qty'], key=f"s_qty_{i}")
-    st.session_state.service_rows[i]['price'] = c_price.number_input("Price ($)", min_value=0.0, value=serv['price'], key=f"s_price_{i}")
-    line_total = st.session_state.service_rows[i]['qty'] * st.session_state.service_rows[i]['price']
-    current_total += line_total
-    if c_del.button("🗑️", key=f"s_del_{i}"):
-        st.session_state.service_rows.pop(i)
+    st.subheader("📦 Services")
+    current_total = 0
+    for i, serv in enumerate(st.session_state.service_rows):
+        d, q, p, x = st.columns([0.5, 0.15, 0.25, 0.1])
+        st.session_state.service_rows[i]['desc'] = d.text_input("Desc", value=serv['desc'], key=f"d_{i}")
+        st.session_state.service_rows[i]['qty'] = q.number_input("Qty", min_value=1, value=serv['qty'], key=f"q_{i}")
+        st.session_state.service_rows[i]['price'] = p.number_input("Price", min_value=0.0, value=serv['price'], key=f"p_{i}")
+        current_total += st.session_state.service_rows[i]['qty'] * st.session_state.service_rows[i]['price']
+        if x.button("🗑️", key=f"del_s_{i}"):
+            st.session_state.service_rows.pop(i)
+            st.rerun()
+    
+    st.info(f"### **Total: ${current_total:,.2f}**")
+    if st.button("➕ Add Service"):
+        st.session_state.service_rows.append({"desc": "", "qty": 1, "price": 0.0})
         st.rerun()
 
-st.info(f"### **Total Amount: ${current_total:,.2f}**")
-if st.button("➕ Add Another Service"):
-    st.session_state.service_rows.append({"desc": "", "qty": 1, "price": 0.0})
-    st.rerun()
+    if st.button("💾 SAVE & GENERATE"):
+        hoy = datetime.now().strftime("%m/%d/%Y")
+        try:
+            with conn.session as session:
+                all_addrs = " | ".join([a for a in st.session_state.address_rows if a.strip()])
+                res = session.execute(text("INSERT INTO invoices (inv_num, cliente, project_addr, total_amount, fecha_hoy) VALUES (:inv, :clie, :proj, :total, :hoy) RETURNING id"), 
+                                    {"inv": inv_no, "clie": c_name, "proj": all_addrs, "total": float(current_total), "hoy": hoy})
+                invoice_id = res.fetchone()[0]
+                for s in st.session_state.service_rows:
+                    if s['desc'].strip():
+                        session.execute(text("INSERT INTO invoice_items (invoice_id, description, quantity, unit_price) VALUES (:iid, :desc, :qty, :prc)"),
+                                        {"iid": invoice_id, "desc": s['desc'], "qty": int(s['qty']), "prc": float(s['price'])})
+                session.commit()
+            
+            pdf_info = {"emisor_info": my_address, "client_name": c_name, "inv_num": inv_no, "date": hoy, "due_date": due_d.strftime("%m/%d/%Y"), "payable_to": my_payable}
+            pdf_bytes = generate_pdf(pdf_info, st.session_state.service_rows, st.session_state.address_rows)
+            
+            st.success("Saved!")
+            st.download_button("📥 Download PDF", data=bytes(pdf_bytes), file_name=f"Invoice_{inv_no}.pdf", mime="application/pdf")
+            st.subheader("📄 Preview")
+            display_pdf(bytes(pdf_bytes))
+        except Exception as e:
+            st.error(f"Error: {e}")
 
-st.markdown("---")
-
-# PROCESO DE GUARDADO Y VISUALIZACIÓN
-if st.button("💾 SAVE TO NEON & GENERATE PDF"):
-    hoy = datetime.now().strftime("%m/%d/%Y")
+# --- PESTAÑA DE HISTORIAL (MEMORIA) ---
+with tab2:
+    st.subheader("📜 Saved Invoices")
     try:
-        # Guardar en Neon
-        with conn.session as session:
-            all_addrs = " | ".join([a for a in st.session_state.address_rows if a.strip()])
-            res = session.execute(text("""
-                INSERT INTO invoices (inv_num, cliente, project_addr, total_amount, fecha_hoy)
-                VALUES (:inv, :clie, :proj, :total, :hoy) RETURNING id
-            """), {"inv": inv_no, "clie": c_name, "proj": all_addrs, "total": float(current_total), "hoy": hoy})
-            invoice_id = res.fetchone()[0]
-            for s in st.session_state.service_rows:
-                if s['desc'].strip():
-                    session.execute(text("""
-                        INSERT INTO invoice_items (invoice_id, description, quantity, unit_price)
-                        VALUES (:iid, :desc, :qty, :prc)
-                    """), {"iid": invoice_id, "desc": s['desc'], "qty": int(s['qty']), "prc": float(s['price'])})
-            session.commit()
+        # Consultar facturas desde Neon
+        query = "SELECT id, inv_num, cliente, total_amount, fecha_hoy, project_addr FROM invoices ORDER BY id DESC"
+        history = conn.query(query)
         
-        # Generar PDF
-        pdf_info = {
-            "emisor_info": my_address, "client_name": c_name, "inv_num": inv_no,
-            "date": hoy, "due_date": due_d.strftime("%m/%d/%Y"), "payable_to": my_payable
-        }
-        # pdf_bytes ahora es un bytearray directo
-        pdf_bytes = generate_pdf(pdf_info, st.session_state.service_rows, st.session_state.address_rows)
-        
-        st.success("Invoice saved and generated!")
-        
-        # Botón de descarga (Casteamos bytearray a bytes para seguridad)
-        st.download_button("📥 Download PDF", data=bytes(pdf_bytes), file_name=f"Invoice_{inv_no}.pdf", mime="application/pdf")
-        
-        # --- APARTADO DE VISUALIZACIÓN ---
-        st.subheader("📄 Preview")
-        display_pdf(bytes(pdf_bytes))
-        
+        if not history.empty:
+            for index, row in history.iterrows():
+                with st.expander(f"📅 {row['fecha_hoy']} | Inv: {row['inv_num']} | Client: {row['cliente']}"):
+                    st.write(f"**Total:** ${row['total_amount']:,.2f}")
+                    st.write(f"**Addresses:** {row['project_addr']}")
+                    
+                    # Para poder redescargar, buscamos sus items
+                    if st.button(f"Re-Generate PDF #{row['inv_num']}", key=f"re_{row['id']}"):
+                        item_query = text("SELECT description as desc, quantity as qty, unit_price as price FROM invoice_items WHERE invoice_id = :iid")
+                        items = conn.query(item_query, params={"iid": row['id']})
+                        
+                        # Convertir a formato lista de dicts para la funcion
+                        items_list = items.to_dict('records')
+                        addr_list = row['project_addr'].split(" | ")
+                        
+                        pdf_info_re = {
+                            "emisor_info": my_address, "client_name": row['cliente'], "inv_num": row['inv_num'],
+                            "date": row['fecha_hoy'], "due_date": row['fecha_hoy'], "payable_to": my_payable
+                        }
+                        re_pdf_bytes = generate_pdf(pdf_info_re, items_list, addr_list)
+                        st.download_button("📥 Click here to Download", data=bytes(re_pdf_bytes), file_name=f"Invoice_{row['inv_num']}.pdf", key=f"dl_{row['id']}")
+        else:
+            st.info("No invoices found in memory.")
     except Exception as e:
-        st.error(f"Error: {e}")
+        st.error(f"Error loading history: {e}")
