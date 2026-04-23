@@ -6,27 +6,31 @@ from datetime import datetime
 st.set_page_config(page_title="Henrry's Garage Invoice System", layout="wide")
 
 def generate_pdf(data):
-    pdf = FPDF()
+    # Inicializar PDF en formato A4
+    pdf = FPDF(orientation='P', unit='mm', format='A4')
     pdf.add_page()
+    pdf.set_margins(10, 10, 10)
     
-    # --- ENCABEZADO (Basado en la imagen y texto proporcionado) ---
-    # Línea decorativa azul superior (estilo logo)
+    # --- ENCABEZADO (Estilo basado en imagen) ---
+    # Línea azul superior
     pdf.set_draw_color(30, 50, 150)
-    pdf.set_line_width(2)
+    pdf.set_line_width(1.5)
     pdf.line(10, 15, 200, 15)
     
-    pdf.ln(10)
+    pdf.ln(12)
+    # Nombre de la empresa
     pdf.set_font("Arial", "B", 16)
-    pdf.set_text_color(30, 50, 150) # Color azul del logo
+    pdf.set_text_color(30, 50, 150)
     pdf.cell(0, 10, data['emisor_nombre'], ln=True)
     
+    # Datos de contacto (Valores predeterminados corregidos)
     pdf.set_font("Arial", "", 10)
     pdf.set_text_color(0, 0, 0)
     pdf.cell(0, 5, data['emisor_dir'], ln=True)
     pdf.cell(0, 5, data['emisor_tel'], ln=True)
     pdf.cell(0, 5, data['emisor_email'], ln=True)
     
-    # Título INVOICE y Fecha
+    # Título INVOICE y Fecha (Posicionados a la derecha)
     pdf.set_y(25)
     pdf.set_font("Arial", "B", 20)
     pdf.cell(0, 10, "INVOICE", align="R", ln=True)
@@ -35,15 +39,13 @@ def generate_pdf(data):
     
     pdf.ln(15)
 
-    # --- TABLAS DE DATOS PRINCIPALES ---
+    # --- TABLAS DE DATOS (Invoice for / Payable to / Invoice #) ---
     pdf.set_fill_color(240, 240, 240)
     pdf.set_font("Arial", "B", 10)
-    # Encabezados de tabla superior
     pdf.cell(60, 8, "Invoice for", border=1, fill=True)
     pdf.cell(60, 8, "Payable to", border=1, fill=True)
     pdf.cell(70, 8, "invoice #", border=1, fill=True, ln=True)
     
-    # Datos de tabla superior
     pdf.set_font("Arial", "", 10)
     pdf.cell(60, 10, data['cliente'], border=1)
     pdf.cell(60, 10, data['payable_to'], border=1)
@@ -51,7 +53,7 @@ def generate_pdf(data):
     
     pdf.ln(5)
     
-    # Proyecto y Vencimiento
+    # Tabla de Proyecto y Fecha de Vencimiento
     pdf.set_font("Arial", "B", 10)
     pdf.cell(95, 8, "Project", border=1, fill=True)
     pdf.cell(95, 8, "Due date", border=1, fill=True, ln=True)
@@ -61,12 +63,12 @@ def generate_pdf(data):
     
     pdf.ln(10)
 
-    # --- DETALLE DE TRABAJO ---
+    # --- DETALLE DE PRODUCTOS / SERVICIOS ---
     pdf.set_font("Arial", "B", 10)
     pdf.cell(100, 8, "DESCRIPTION", border=1, fill=True)
-    pdf.cell(20, 8, "Qty", border=1, fill=True)
-    pdf.cell(35, 8, "UNIT PRICE", border=1, fill=True)
-    pdf.cell(35, 8, "TOTAL PRICE", border=1, fill=True, ln=True)
+    pdf.cell(20, 8, "Qty", border=1, fill=True, align="C")
+    pdf.cell(35, 8, "UNIT PRICE", border=1, fill=True, align="C")
+    pdf.cell(35, 8, "TOTAL PRICE", border=1, fill=True, ln=True, align="C")
     
     pdf.set_font("Arial", "", 10)
     pdf.cell(100, 10, data['desc'], border=1)
@@ -74,82 +76,92 @@ def generate_pdf(data):
     pdf.cell(35, 10, f"${data['unit_p']}", border=1, align="C")
     pdf.cell(35, 10, f"${data['total_p']}", border=1, align="C", ln=True)
     
-    # Total Final
+    # Fila de Total
     pdf.ln(5)
     pdf.set_font("Arial", "B", 12)
     pdf.cell(155, 10, "Total", align="R")
-    pdf.set_fill_color(255, 255, 255)
     pdf.cell(35, 10, f"${data['total_p']}", border=1, align="C", ln=True)
 
-    # --- SECCIÓN DE GARANTÍA (Texto exacto del original) ---
+    # --- SECCIÓN DE GARANTÍA (Corregida para evitar FPDFException) ---
     pdf.ln(15)
+    pdf.set_x(10) # Asegura el inicio en el margen izquierdo
     pdf.set_font("Arial", "B", 8)
-    pdf.multi_cell(0, 5, "***WARRANTY BEGINS FROM THE DATE OF THE INVOICE***")
+    pdf.multi_cell(0, 5, "***WARRANTY BEGINS FROM THE DATE OF THE INVOICE***", ln=True)
+    
     pdf.set_font("Arial", "", 8)
-    pdf.multi_cell(0, 4, "For installation on a new garage door, it has a 1-year warranty on factory defects and installation by HENRRY DOORS we are not responsible for damages or bad manipulation when opening or closing the garage door And 6 months in Opener.")
+    warranty_text = (
+        "For installation on a new garage door, it has a 1-year warranty on factory defects "
+        "and installation by HENRRY DOORS we are not responsible for damages or bad "
+        "manipulation when opening or closing the garage door And 6 months in Opener."
+    )
+    # multi_cell con w=0 usa todo el ancho disponible automáticamente
+    pdf.multi_cell(0, 4, warranty_text, ln=True)
     
     pdf.ln(10)
     pdf.set_font("Arial", "I", 11)
-    pdf.cell(0, 10, "Thank You For Your Business", align="C")
+    pdf.cell(0, 10, "Thank You For Your Business", align="C", ln=True)
     
+    # Retornar el PDF como bytes (compatible con fpdf2)
     return pdf.output()
 
-# --- INTERFAZ DE USUARIO ---
-st.title("🛠️ Sistema de Facturación - Henrry's Garage")
+# --- INTERFAZ DE USUARIO CON STREAMLIT ---
+st.title("📄 Generador de Facturas - Henrry's Garage")
 
-# Sidebar para datos del emisor (Siempre aparecen, pero son editables)
-st.sidebar.header("Configuración del Emisor")
-emisor_nombre = st.sidebar.text_input("Nombre de Empresa", "Henrry's Garage Door Service") # [cite: 1]
-emisor_dir = st.sidebar.text_input("Dirección", "Magnolia Houston tx") # 
-emisor_tel = st.sidebar.text_input("Teléfono", "(661)648-6043") # 
-emisor_email = st.sidebar.text_input("Email", "alemanperez99@gmail.com") # [cite: 5]
+# Sidebar para datos fijos pero editables (Dirección, Teléfono, etc.)
+st.sidebar.header("Datos del Negocio")
+e_nombre = st.sidebar.text_input("Nombre", "Henrry's Garage Door Service")
+e_dir = st.sidebar.text_input("Dirección", "Magnolia Houston tx")
+e_tel = st.sidebar.text_input("Teléfono", "(661)648-6043")
+e_mail = st.sidebar.text_input("Email", "alemanperez99@gmail.com")
 
-# Cuerpo principal
-with st.form("main_form"):
-    c1, c2, c3 = st.columns(3)
-    inv_num = c1.text_input("Invoice #", "5") # [cite: 8]
-    client_name = c2.text_input("Invoice For", "The Woodlands Living") # [cite: 8]
-    payable_to = c3.text_input("Payable to", "Henrry Perez") # [cite: 8]
+# Formulario principal de la factura
+with st.form("invoice_form"):
+    col1, col2, col3 = st.columns(3)
+    num_inv = col1.text_input("Invoice #", "5")
+    cliente = col2.text_input("Invoice For", "The Woodlands Living")
+    pagar_a = col3.text_input("Payable to", "Henrry Perez")
     
-    c4, c5 = st.columns(2)
-    project_addr = c4.text_input("Project Address", "4919 Curiosity Ct") # [cite: 9]
-    due_date = c5.date_input("Due Date") # [cite: 9]
+    col4, col5 = st.columns(2)
+    proyecto = col4.text_input("Project Address", "4919 Curiosity Ct")
+    fecha_vence = col5.date_input("Due Date")
     
     st.divider()
     
-    # Detalle del servicio
-    desc = st.text_input("Service Description", "Rail Repair in Genie Opener") # [cite: 11]
-    col_q, col_p = st.columns(2)
-    qty = col_q.number_input("Quantity", min_value=1, value=1) # [cite: 14]
-    price = col_p.number_input("Unit Price ($)", min_value=0.0, value=75.0) # [cite: 15]
+    # Detalle del trabajo
+    servicio = st.text_input("Description", "Rail Repair in Genie Opener")
+    c_qty, c_price = st.columns(2)
+    cantidad = c_qty.number_input("Qty", min_value=1, value=1)
+    precio_u = c_price.number_input("Unit Price ($)", min_value=0.0, value=75.0)
     
-    submit_btn = st.form_submit_button("Generar Factura PDF")
+    boton_generar = st.form_submit_button("Crear Factura")
 
-if submit_btn:
-    # Preparar datos para el PDF
-    invoice_data = {
-        'emisor_nombre': emisor_nombre,
-        'emisor_dir': emisor_dir,
-        'emisor_tel': emisor_tel,
-        'emisor_email': emisor_email,
+if boton_generar:
+    # Procesamiento de datos
+    datos_finales = {
+        'emisor_nombre': e_nombre,
+        'emisor_dir': e_dir,
+        'emisor_tel': e_tel,
+        'emisor_email': e_mail,
         'fecha_hoy': datetime.now().strftime("%m/%d/%Y"),
-        'cliente': client_name,
-        'payable_to': payable_to,
-        'inv_num': inv_num,
-        'project_addr': project_addr,
-        'due_date': due_date.strftime("%m/%d/%Y"),
-        'desc': desc,
-        'qty': qty,
-        'unit_p': f"{price:.2f}",
-        'total_p': f"{(qty * price):.2f}"
+        'cliente': cliente,
+        'payable_to': pagar_a,
+        'inv_num': num_inv,
+        'project_addr': proyecto,
+        'due_date': fecha_vence.strftime("%m/%d/%Y"),
+        'desc': servicio,
+        'qty': cantidad,
+        'unit_p': f"{precio_u:.2f}",
+        'total_p': f"{(cantidad * precio_u):.2f}"
     }
     
-    pdf_bytes = generate_pdf(invoice_data)
-    
-    st.success("Factura generada exitosamente.")
-    st.download_button(
-        label="📥 Descargar Factura PDF",
-        data=pdf_bytes,
-        file_name=f"Invoice_{inv_num}.pdf",
-        mime="application/pdf"
-    )
+    try:
+        pdf_output = generate_pdf(datos_finales)
+        st.success("✅ ¡PDF generado con éxito!")
+        st.download_button(
+            label="📥 Descargar Factura PDF",
+            data=bytes(pdf_output),
+            file_name=f"Invoice_{num_inv}.pdf",
+            mime="application/pdf"
+        )
+    except Exception as e:
+        st.error(f"Error al generar el PDF: {e}")
