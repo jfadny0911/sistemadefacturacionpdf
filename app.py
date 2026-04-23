@@ -4,10 +4,10 @@ from datetime import datetime
 import pandas as pd
 from sqlalchemy import text
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Henrry's Garage | Professional Invoice", layout="wide")
+# --- CONFIGURACIÓN ---
+st.set_page_config(page_title="Henrry's Garage | Multi-Address System", layout="wide")
 
-# Conexión a Neon (Asegúrate de configurar [connections.postgresql] en Secrets)
+# Conexión a Neon
 conn = st.connection("postgresql", type="sql")
 
 class ModernInvoice(FPDF):
@@ -15,44 +15,37 @@ class ModernInvoice(FPDF):
         azul_oscuro = (30, 60, 90) 
         naranja = (220, 130, 50)  
 
-        # Encabezado sólido
         self.set_fill_color(*azul_oscuro)
         self.rect(0, 0, 210, 50, 'F')
         
-        # Línea naranja decorativa (atrás del logo)
         self.set_draw_color(*naranja)
         self.set_line_width(1.2)
         self.line(0, 28, 110, 28)
 
-        # Logo
         try:
             self.image("logo.png", 12, 8, 33) 
             self.set_xy(52, 15) 
         except:
             self.set_xy(15, 15)
         
-        # Nombre de la empresa
         self.set_font("Helvetica", "B", 22)
         self.set_text_color(255, 255, 255)
         self.cell(0, 10, "HENRRY'S GARAGE DOOR SERVICE", ln=True)
         
-        # Datos del emisor (Datos originales solicitados)
+        # Dirección del Emisor (La que editas en el panel)
         self.set_y(32)
         if self.get_x() < 50: self.set_x(52)
         self.set_font("Helvetica", "", 9)
-        # Usamos los datos originales de Terri Ln
-        info = f"31411 Terri Ln, Magnolia, TX 77354  |  (661) 648-6043  |  alemanperez99@gmail.com"
-        self.cell(0, 5, info, ln=True)
+        self.cell(0, 5, f"{data['emisor_info']}", ln=True)
 
 def generate_pdf(data, items_df):
-    pdf = ModernInvoice(orientation='P', unit='mm', format='A4')
+    pdf = ModernInvoice()
     pdf.add_page()
     pdf.draw_header(data)
     
     dark_blue = (30, 60, 90)
     
     pdf.set_y(60)
-    # Bloque de información (BILL TO e INVOICE DETAILS)
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(120, 120, 120)
     pdf.cell(95, 5, "BILL TO:", ln=0)
@@ -64,21 +57,28 @@ def generate_pdf(data, items_df):
     pdf.set_font("Helvetica", "", 11)
     pdf.cell(95, 8, f"Invoice #: {data['inv_num']}", ln=1)
     
+    # Aquí se imprimen las direcciones (pueden ser varias líneas)
     pdf.set_font("Helvetica", "", 10)
-    pdf.cell(95, 5, f"Project: {data['project_addr']}", ln=0)
-    pdf.cell(95, 5, f"Date: {data['date']}", ln=1)
-    pdf.cell(95, 5, f"Payable to: {data['payable_to']}", ln=0)
-    pdf.cell(95, 5, f"Due Date: {data['due_date']}", ln=1)
+    pdf.set_text_color(80, 80, 80)
+    pdf.set_x(10)
+    pdf.multi_cell(95, 5, f"Project Address(es):\n{data['project_addr']}")
     
-    pdf.ln(12)
-
-    # --- TABLA DE PRODUCTOS/SERVICIOS ---
+    pdf.set_y(73) # Ajuste para que no choque con las direcciones
+    pdf.set_x(105)
+    pdf.cell(95, 5, f"Date: {data['date']}", ln=1)
+    pdf.set_x(105)
+    pdf.cell(95, 5, f"Due Date: {data['due_date']}", ln=1)
+    pdf.set_x(105)
+    pdf.cell(95, 5, f"Payable to: {data['payable_to']}", ln=1)
+    
+    pdf.ln(10)
+    # TABLA
     pdf.set_fill_color(*dark_blue)
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(255, 255, 255)
     pdf.cell(110, 10, " DESCRIPTION", fill=True)
     pdf.cell(20, 10, "QTY", fill=True, align="C")
-    pdf.cell(30, 10, "UNIT PRICE", fill=True, align="C")
+    pdf.cell(30, 10, "PRICE", fill=True, align="C")
     pdf.cell(30, 10, "TOTAL", fill=True, align="C", ln=1)
     
     pdf.set_text_color(0, 0, 0)
@@ -92,72 +92,64 @@ def generate_pdf(data, items_df):
         pdf.cell(30, 10, f"${row['Unit Price']:,.2f}", border='B', align="C")
         pdf.cell(30, 10, f"${l_total:,.2f}", border='B', align="C", ln=1)
     
-    # Total Resaltado
-    pdf.ln(8)
+    pdf.ln(5)
     pdf.set_x(140)
     pdf.set_font("Helvetica", "B", 14)
     pdf.set_fill_color(220, 130, 50)
     pdf.set_text_color(255, 255, 255)
     pdf.cell(60, 12, f" TOTAL: ${total_val:,.2f}", fill=True, align="C", ln=1)
 
-    # --- GARANTÍA (Texto Original) ---
-    pdf.ln(15)
-    pdf.set_x(15)
-    pdf.set_font("Helvetica", "B", 10)
+    # Garantía
+    pdf.ln(10)
+    pdf.set_font("Helvetica", "B", 9)
     pdf.set_text_color(*dark_blue)
     pdf.cell(0, 5, "WARRANTY TERMS", ln=True)
-    pdf.set_font("Helvetica", "", 8.5)
-    pdf.set_text_color(80, 80, 80)
-    
-    warranty_text = (
-        "***WARRANTY BEGINS FROM THE DATE OF THE INVOICE***\n"
-        "For installation on a new garage door, it has a 1-year warranty on factory defects "
-        "and installation by HENRRY DOORS we are not responsible for damages or bad "
-        "manipulation when opening or closing the garage door And 6 months in Opener."
-    )
-    pdf.multi_cell(180, 4.5, warranty_text)
-    
-    pdf.ln(10)
-    pdf.set_font("Helvetica", "B", 12)
-    pdf.set_text_color(*dark_blue)
-    pdf.cell(0, 10, "Thank You For Your Business", align="C", ln=True)
+    pdf.set_font("Helvetica", "", 8)
+    pdf.set_text_color(100, 100, 100)
+    warranty = "***WARRANTY BEGINS FROM THE DATE OF THE INVOICE***\n1-year warranty on factory defects/installation, 6 months in Opener."
+    pdf.multi_cell(180, 4, warranty)
     
     return pdf.output()
 
-# --- INTERFAZ STREAMLIT ---
-st.title("🛠️ Henrry's Garage | Premium SQL System")
+# --- PANEL DE DIRECCIÓN DEL EMISOR (MAGNOLIA) ---
+with st.sidebar:
+    st.header("⚙️ Your Business Info")
+    st.info("Edit your address here. It will appear at the top of the invoice.")
+    # Dirección por defecto de Magnolia editable
+    my_address = st.text_area("Your Address", "31411 Terri Ln, Magnolia, TX 77354\n(661) 648-6043 | alemanperez99@gmail.com")
+    my_payable = st.text_input("Payable to", "Henrry Perez")
 
-c1, c2, c3 = st.columns(3)
-inv_no = c1.text_input("Invoice #", value="005")
-c_name = c2.text_input("Client Name", value="The Woodlands Living")
-paga_a = c3.text_input("Payable to", value="Henrry Perez")
+# --- FORMULARIO DE CLIENTE ---
+st.title("🛠️ Henrry's Garage Invoice System")
 
-p_addr = st.text_input("Project Address", value="4919 Curiosity Ct")
-d_date = st.date_input("Due Date")
+col1, col2 = st.columns(2)
+inv_no = col1.text_input("Invoice #")
+c_name = col2.text_input("Client Name")
 
-# Tabla dinámica para múltiples productos
+# Área para múltiples direcciones de proyecto
+p_addresses = st.text_area("Project Addresses (You can add two or more here)", placeholder="Address 1\nAddress 2...")
+due_date = st.date_input("Due Date")
+
+# Tabla de productos
 st.subheader("Services & Products")
 items_df = st.data_editor(
-    pd.DataFrame([{"Description": "Rail Repair in Genie Opener", "Quantity": 1, "Unit Price": 75.0}]),
-    num_rows="dynamic",
-    use_container_width=True
+    pd.DataFrame([{"Description": "", "Quantity": 1, "Unit Price": 0.0}]),
+    num_rows="dynamic", use_container_width=True
 )
 
-if st.button("SAVE TO NEON & GENERATE PDF"):
+if st.button("SAVE & GENERATE"):
     total_invoice = (items_df['Quantity'] * items_df['Unit Price']).sum()
     hoy = datetime.now().strftime("%m/%d/%Y")
     
     try:
-        # Guardar en Neon
         with conn.session as session:
-            # 1. Insertar Cabecera
+            # Guardamos la factura con la dirección que usaste en ese momento
             res = session.execute(text("""
                 INSERT INTO invoices (invoice_number, cliente, project_addr, total_amount, fecha_hoy)
                 VALUES (:inv, :clie, :proj, :total, :hoy) RETURNING id
-            """), {"inv": inv_no, "clie": c_name, "proj": p_addr, "total": float(total_invoice), "hoy": hoy})
+            """), {"inv": inv_no, "clie": c_name, "proj": p_addresses, "total": float(total_invoice), "hoy": hoy})
             invoice_id = res.fetchone()[0]
             
-            # 2. Insertar cada Item
             for _, row in items_df.iterrows():
                 session.execute(text("""
                     INSERT INTO invoice_items (invoice_id, description, quantity, unit_price)
@@ -165,17 +157,16 @@ if st.button("SAVE TO NEON & GENERATE PDF"):
                 """), {"iid": invoice_id, "desc": row['Description'], "qty": int(row['Quantity']), "prc": float(row['Unit Price'])})
             session.commit()
             
-        st.success(f"Invoice {inv_no} saved successfully in Neon!")
+        st.success("Invoice Saved!")
         
-        # Datos para el PDF
+        # Datos para PDF
         pdf_info = {
-            "emisor_dir": "31411 Terri Ln", "emisor_tel": "(661) 648-6043", "emisor_email": "alemanperez99@gmail.com",
-            "client_name": c_name, "inv_num": inv_no, "project_addr": p_addr, 
-            "date": hoy, "due_date": d_date.strftime("%m/%d/%Y"), "payable_to": paga_a
+            "emisor_info": my_address, "client_name": c_name, "inv_num": inv_no,
+            "project_addr": p_addresses, "date": hoy, "due_date": due_date.strftime("%m/%d/%Y"),
+            "payable_to": my_payable
         }
-        
         pdf_bytes = generate_pdf(pdf_info, items_df)
-        st.download_button("📥 Download Invoice PDF", data=bytes(pdf_bytes), file_name=f"Invoice_{inv_no}.pdf")
+        st.download_button("📥 Download PDF", data=bytes(pdf_bytes), file_name=f"Invoice_{inv_no}.pdf")
         
     except Exception as e:
-        st.error(f"Error connecting to Neon: {e}")
+        st.error(f"Error: {e}")
