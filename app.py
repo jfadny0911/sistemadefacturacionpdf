@@ -113,10 +113,8 @@ def generate_pdf(data, services, addresses):
 
     return pdf.output(dest='S')
 
-# Función de visualización mejorada
 def display_pdf(pdf_bytes):
     base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-    # Usamos un objeto embebido que funciona mejor en Chrome/Safari
     pdf_display = f'<embed src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf">'
     st.markdown(pdf_display, unsafe_allow_html=True)
 
@@ -128,8 +126,7 @@ with st.sidebar:
     my_address = st.text_area("Your Header Info", "31411 Terri Ln, Magnolia, TX 77354\n(661) 648-6043 | alemanperez99@gmail.com")
     my_payable = st.text_input("Payable to", "Henrry Perez")
 
-# Pestañas para organizar la app
-tab1, tab2 = st.tabs(["🆕 Create Invoice", "📜 Invoice History (Memory)"])
+tab1, tab2 = st.tabs(["🆕 Create Invoice", "📜 Invoice History"])
 
 with tab1:
     with st.container():
@@ -191,28 +188,25 @@ with tab1:
         except Exception as e:
             st.error(f"Error: {e}")
 
-# --- PESTAÑA DE HISTORIAL (MEMORIA) ---
+# --- PESTAÑA DE HISTORIAL CORREGIDA ---
 with tab2:
     st.subheader("📜 Saved Invoices")
     try:
-        # Consultar facturas desde Neon
-        query = "SELECT id, inv_num, cliente, total_amount, fecha_hoy, project_addr FROM invoices ORDER BY id DESC"
-        history = conn.query(query)
+        # Se usa el string directo de la consulta para evitar el error de hashing de sqlalchemy
+        history_df = conn.query("SELECT id, inv_num, cliente, total_amount, fecha_hoy, project_addr FROM invoices ORDER BY id DESC")
         
-        if not history.empty:
-            for index, row in history.iterrows():
+        if not history_df.empty:
+            for index, row in history_df.iterrows():
                 with st.expander(f"📅 {row['fecha_hoy']} | Inv: {row['inv_num']} | Client: {row['cliente']}"):
                     st.write(f"**Total:** ${row['total_amount']:,.2f}")
                     st.write(f"**Addresses:** {row['project_addr']}")
                     
-                    # Para poder redescargar, buscamos sus items
                     if st.button(f"Re-Generate PDF #{row['inv_num']}", key=f"re_{row['id']}"):
-                        item_query = text("SELECT description as desc, quantity as qty, unit_price as price FROM invoice_items WHERE invoice_id = :iid")
-                        items = conn.query(item_query, params={"iid": row['id']})
+                        # Para sub-consultas tambien usamos el formato directo o pasamos los parametros asi:
+                        items_df = conn.query(f"SELECT description as desc, quantity as qty, unit_price as price FROM invoice_items WHERE invoice_id = {row['id']}")
                         
-                        # Convertir a formato lista de dicts para la funcion
-                        items_list = items.to_dict('records')
-                        addr_list = row['project_addr'].split(" | ")
+                        items_list = items_df.to_dict('records')
+                        addr_list = str(row['project_addr']).split(" | ")
                         
                         pdf_info_re = {
                             "emisor_info": my_address, "client_name": row['cliente'], "inv_num": row['inv_num'],
@@ -221,6 +215,6 @@ with tab2:
                         re_pdf_bytes = generate_pdf(pdf_info_re, items_list, addr_list)
                         st.download_button("📥 Click here to Download", data=bytes(re_pdf_bytes), file_name=f"Invoice_{row['inv_num']}.pdf", key=f"dl_{row['id']}")
         else:
-            st.info("No invoices found in memory.")
+            st.info("No invoices found.")
     except Exception as e:
         st.error(f"Error loading history: {e}")
