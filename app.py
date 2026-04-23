@@ -7,10 +7,9 @@ from sqlalchemy import text
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Henrry's Garage | Professional System", layout="wide")
 
-# Conexión a Neon (Asegúrate de tener la URL en los Secrets de Streamlit Cloud)
+# Conexión a Neon
 conn = st.connection("postgresql", type="sql")
 
-# --- ESTADO DE LA SESIÓN (Para manejar filas dinámicas sin tablas) ---
 if 'address_rows' not in st.session_state:
     st.session_state.address_rows = [""]
 if 'service_rows' not in st.session_state:
@@ -44,7 +43,7 @@ def generate_pdf(data, services, addresses):
     pdf.add_page()
     pdf.draw_header(data)
     
-    # Bloque de Cliente y Direcciones de Proyecto
+    # Bloque de Cliente y Direcciones
     pdf.set_y(60)
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(100, 100, 100)
@@ -61,7 +60,7 @@ def generate_pdf(data, services, addresses):
             pdf.cell(5, 5, "- ", ln=0)
             pdf.multi_cell(90, 5, addr)
 
-    # Detalles de Factura a la derecha
+    # Detalles de Factura
     pdf.set_y(60)
     pdf.set_x(120)
     pdf.set_font("Helvetica", "B", 10)
@@ -91,36 +90,47 @@ def generate_pdf(data, services, addresses):
         pdf.cell(35, 10, f"${s['price']:,.2f}", border='B', align="C")
         pdf.cell(35, 10, f"${line_total:,.2f}", border='B', align="C", ln=1)
 
-    # Total Resaltado en Naranja
+    # Total Resaltado
     pdf.ln(8)
     pdf.set_x(140)
     pdf.set_font("Helvetica", "B", 14)
     pdf.set_fill_color(220, 130, 50)
     pdf.set_text_color(255, 255, 255)
-    pdf.cell(60, 12, f" TOTAL: ${total_gral:,.2f}", fill=True, align="C")
+    pdf.cell(60, 12, f" TOTAL: ${total_gral:,.2f}", fill=True, align="C", ln=1)
     
-    # Garantía Final
-    pdf.ln(18)
-    pdf.set_x(15)
+    # --- BLOQUE DE GARANTÍA CENTRADO AL FINAL ---
+    # Posicionar a 50mm del final de la página
+    pdf.set_y(-55) 
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(30, 60, 90)
-    pdf.cell(0, 5, "WARRANTY TERMS", ln=True)
-    pdf.set_font("Helvetica", "", 8)
-    pdf.set_text_color(100, 100, 100)
-    pdf.multi_cell(180, 4, "***WARRANTY BEGINS FROM THE DATE OF THE INVOICE***\n1-year warranty on factory defects/installation, 6 months in Opener.")
+    pdf.cell(0, 5, "***WARRANTY BEGINS FROM THE DATE OF THE INVOICE***", ln=True, align="C")
+    
+    pdf.set_font("Helvetica", "", 9)
+    pdf.set_text_color(80, 80, 80)
+    warranty_text = (
+        "For installation on a new garage door, it has a 1-year warranty on factory defects "
+        "and installation by HENRRY DOORS we are not responsible for damages or bad "
+        "manipulation when opening or closing the garage door And 6 months in Opener"
+    )
+    # Multi_cell con alineación centrada
+    pdf.multi_cell(0, 5, warranty_text, align="C")
+    
+    # Mensaje de cierre centrado
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(30, 60, 90)
+    pdf.cell(0, 10, "Thank You For Your Business", ln=True, align="C")
 
     return pdf.output()
 
 # --- INTERFAZ STREAMLIT ---
 st.title("🛠️ Henrry's Garage Management System")
 
-# Barra lateral con tu información de negocio (La parte que te gustó)
 with st.sidebar:
     st.header("⚙️ My Business Info")
     my_address = st.text_area("Your Header Info", "31411 Terri Ln, Magnolia, TX 77354\n(661) 648-6043 | alemanperez99@gmail.com")
     my_payable = st.text_input("Payable to", "Henrry Perez")
 
-# SECCIÓN 1: DATOS GENERALES
 with st.container():
     st.subheader("👤 Invoice & Client Details")
     c1, c2, c3 = st.columns([1, 2, 1])
@@ -128,7 +138,6 @@ with st.container():
     c_name = c2.text_input("Client Name")
     due_d = c3.date_input("Due Date")
 
-# SECCIÓN 2: DIRECCIONES DE PROYECTO (Estilo Moderno con botones)
 st.markdown("---")
 st.subheader("📍 Project Addresses")
 for i, addr in enumerate(st.session_state.address_rows):
@@ -142,7 +151,6 @@ if st.button("➕ Add Another Address"):
     st.session_state.address_rows.append("")
     st.rerun()
 
-# SECCIÓN 3: SERVICIOS (Estilo Moderno con botones)
 st.markdown("---")
 st.subheader("📦 Services & Products")
 current_total = 0
@@ -151,10 +159,8 @@ for i, serv in enumerate(st.session_state.service_rows):
     st.session_state.service_rows[i]['desc'] = c_desc.text_input("Description", value=serv['desc'], key=f"s_desc_{i}")
     st.session_state.service_rows[i]['qty'] = c_qty.number_input("Qty", min_value=1, value=serv['qty'], key=f"s_qty_{i}")
     st.session_state.service_rows[i]['price'] = c_price.number_input("Price ($)", min_value=0.0, value=serv['price'], key=f"s_price_{i}")
-    
     line_total = st.session_state.service_rows[i]['qty'] * st.session_state.service_rows[i]['price']
     current_total += line_total
-    
     if c_del.button("🗑️", key=f"s_del_{i}"):
         st.session_state.service_rows.pop(i)
         st.rerun()
@@ -165,51 +171,30 @@ if st.button("➕ Add Another Service"):
     st.rerun()
 
 st.markdown("---")
-
-# BOTÓN FINAL: GUARDADO Y GENERACIÓN
 if st.button("💾 SAVE TO NEON & GENERATE PDF"):
     hoy = datetime.now().strftime("%m/%d/%Y")
     try:
         with conn.session as session:
-            # Unimos direcciones para el historial en Neon
             all_addrs = " | ".join([a for a in st.session_state.address_rows if a.strip()])
-            
-            # Consulta SQL corregida para usar 'inv_num'
             res = session.execute(text("""
                 INSERT INTO invoices (inv_num, cliente, project_addr, total_amount, fecha_hoy)
                 VALUES (:inv, :clie, :proj, :total, :hoy) RETURNING id
-            """), {
-                "inv": inv_no, 
-                "clie": c_name, 
-                "proj": all_addrs, 
-                "total": float(current_total), 
-                "hoy": hoy
-            })
+            """), {"inv": inv_no, "clie": c_name, "proj": all_addrs, "total": float(current_total), "hoy": hoy})
             invoice_id = res.fetchone()[0]
-            
-            # Insertar Items uno a uno
             for s in st.session_state.service_rows:
                 if s['desc'].strip():
                     session.execute(text("""
                         INSERT INTO invoice_items (invoice_id, description, quantity, unit_price)
                         VALUES (:iid, :desc, :qty, :prc)
-                    """), {
-                        "iid": invoice_id, 
-                        "desc": s['desc'], 
-                        "qty": int(s['qty']), 
-                        "prc": float(s['price'])
-                    })
+                    """), {"iid": invoice_id, "desc": s['desc'], "qty": int(s['qty']), "prc": float(s['price'])})
             session.commit()
             
-        # Generación de PDF
         pdf_info = {
             "emisor_info": my_address, "client_name": c_name, "inv_num": inv_no,
             "date": hoy, "due_date": due_d.strftime("%m/%d/%Y"), "payable_to": my_payable
         }
         pdf_bytes = generate_pdf(pdf_info, st.session_state.service_rows, st.session_state.address_rows)
-        
-        st.success("Invoice successfully saved in Neon!")
+        st.success("Invoice successfully saved!")
         st.download_button("📥 Download Invoice PDF", data=bytes(pdf_bytes), file_name=f"Invoice_{inv_no}.pdf")
-        
     except Exception as e:
         st.error(f"Error saving data: {e}")
