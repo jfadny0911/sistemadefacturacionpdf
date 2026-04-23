@@ -96,10 +96,14 @@ def generate_pdf(data, services, addresses):
     pdf.set_text_color(255, 255, 255)
     pdf.cell(60, 12, f" TOTAL: ${total_gral:,.2f}", fill=True, align="C", ln=1)
     
+    # --- BLOQUE DE GARANTÍA ---
     pdf.set_y(-55) 
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(30, 60, 90)
-    pdf.cell(0, 5, "***WARRANTY BEGINS FROM THE DATE OF THE INVOICE***", ln=True, align="C")
+    
+    # Aseguramos que el cursor esté en el margen izquierdo para centrar bien
+    pdf.set_x(10)
+    pdf.cell(190, 5, "***WARRANTY BEGINS FROM THE DATE OF THE INVOICE***", ln=1, align="C")
     
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(80, 80, 80)
@@ -108,8 +112,16 @@ def generate_pdf(data, services, addresses):
         "and installation by HENRRY DOORS we are not responsible for damages or bad "
         "manipulation when opening or closing the garage door And 6 months in Opener"
     )
-    pdf.multi_cell(0, 5, warranty_text, align="C")
-    pdf.cell(0, 10, "Thank You For Your Business", ln=True, align="C")
+    pdf.set_x(10)
+    pdf.multi_cell(190, 5, warranty_text, align="C")
+    
+    pdf.ln(2)
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.set_text_color(30, 60, 90)
+    
+    # CORRECCIÓN: Resetear el margen X a 10 y usar un ancho fijo de 190 para forzar el centro
+    pdf.set_x(10)
+    pdf.cell(190, 10, "Thank You For Your Business", ln=1, align="C")
 
     return pdf.output(dest='S')
 
@@ -181,19 +193,19 @@ with tab1:
             pdf_info = {"emisor_info": my_address, "client_name": c_name, "inv_num": inv_no, "date": hoy, "due_date": due_d.strftime("%m/%d/%Y"), "payable_to": my_payable}
             pdf_bytes = generate_pdf(pdf_info, st.session_state.service_rows, st.session_state.address_rows)
             
-            st.success("Saved!")
+            st.success("Saved! You can view it below or check the History tab.")
             st.download_button("📥 Download PDF", data=bytes(pdf_bytes), file_name=f"Invoice_{inv_no}.pdf", mime="application/pdf")
             st.subheader("📄 Preview")
             display_pdf(bytes(pdf_bytes))
         except Exception as e:
             st.error(f"Error: {e}")
 
-# --- PESTAÑA DE HISTORIAL CORREGIDA ---
+# --- PESTAÑA DE HISTORIAL ---
 with tab2:
     st.subheader("📜 Saved Invoices")
     try:
-        # Se usa el string directo de la consulta para evitar el error de hashing de sqlalchemy
-        history_df = conn.query("SELECT id, inv_num, cliente, total_amount, fecha_hoy, project_addr FROM invoices ORDER BY id DESC")
+        # CORRECCIÓN: Agregar ttl=0 apaga el caché, obligando a Streamlit a actualizar la lista de inmediato.
+        history_df = conn.query("SELECT id, inv_num, cliente, total_amount, fecha_hoy, project_addr FROM invoices ORDER BY id DESC", ttl=0)
         
         if not history_df.empty:
             for index, row in history_df.iterrows():
@@ -202,8 +214,8 @@ with tab2:
                     st.write(f"**Addresses:** {row['project_addr']}")
                     
                     if st.button(f"Re-Generate PDF #{row['inv_num']}", key=f"re_{row['id']}"):
-                        # Para sub-consultas tambien usamos el formato directo o pasamos los parametros asi:
-                        items_df = conn.query(f"SELECT description as desc, quantity as qty, unit_price as price FROM invoice_items WHERE invoice_id = {row['id']}")
+                        # También le decimos a las sub-consultas que ignoren el caché
+                        items_df = conn.query(f"SELECT description as desc, quantity as qty, unit_price as price FROM invoice_items WHERE invoice_id = {row['id']}", ttl=0)
                         
                         items_list = items_df.to_dict('records')
                         addr_list = str(row['project_addr']).split(" | ")
