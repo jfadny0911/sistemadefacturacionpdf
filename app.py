@@ -20,26 +20,22 @@ if 'service_rows' not in st.session_state:
 # --- CLASE PDF PROFESIONAL CON NUEVO DISEÑO ---
 class ModernInvoice(FPDF):
     def draw_header(self, data):
-        # Colores definidos (Adaptados del diseño anterior para mantener coherencia)
+        # Colores definidos
         azul_oscuro = (30, 60, 90) 
         naranja = (220, 130, 50)  
-        gris_fondo = (245, 245, 245)
 
-        # 1. ENCABEZADO SUPERIOR (Dos bloques azul oscuro)
+        # 1. ENCABEZADO SUPERIOR
         self.set_fill_color(*azul_oscuro)
-        # Bloque izquierdo para el logo e info del cliente
         self.rect(0, 0, 105, 50, 'F')
-        # Bloque derecho para "INVOICE" y detalles
         self.rect(105, 0, 105, 50, 'F')
 
         # -- Bloque Izquierdo --
-        # Logo
         try:
             self.image("logo.png", 12, 8, 33) 
             self.set_xy(52, 12) 
         except:
             self.set_xy(15, 12)
-        # Información de la empresa (adaptada del diseño anterior)
+            
         self.set_font("Helvetica", "B", 18)
         self.set_text_color(255, 255, 255)
         self.cell(0, 10, "HENRRY'S GARAGE", ln=True)
@@ -50,18 +46,16 @@ class ModernInvoice(FPDF):
         self.set_font("Helvetica", "", 10)
         self.set_x(52 if self.get_x() > 20 else 15)
         self.cell(0, 5, data['client_name'].upper(), ln=True)
-        # Direcciones (puede ser larga, usar multi_cell)
+        
         self.set_x(52 if self.get_x() > 20 else 15)
         self.multi_cell(0, 5, data['project_addr'], align='L')
 
         # -- Bloque Derecho --
         self.set_xy(115, 12)
-        # "INVOICE" en naranja grande
         self.set_font("Helvetica", "B", 42)
         self.set_text_color(*naranja)
         self.cell(0, 15, "INVOICE", ln=True, align="L")
         
-        # Detalles de la factura (Inv #, Fecha Venc, Fecha Inv)
         self.set_font("Helvetica", "", 10)
         self.set_text_color(255, 255, 255)
         details_x = 115
@@ -84,15 +78,15 @@ class ModernInvoice(FPDF):
         self.set_font("Helvetica", "B", 10)
         self.cell(0, 5, f"{data['date']}", ln=True)
 
-        # 2. BARRA HORIZONTAL NARANJA CON ICONO Y DIRECCIÓN
+        # 2. BARRA HORIZONTAL NARANJA CON DIRECCIÓN
         self.set_fill_color(*naranja)
         self.rect(0, 50, 210, 15, 'F')
         self.set_xy(15, 50)
-        # Icono de ubicación (simulado con un círculo)
+        
         self.set_draw_color(*azul_oscuro)
         self.set_fill_color(*azul_oscuro)
         self.circle(18, 57.5, 2, 'F')
-        # Dirección de la empresa (Del sidebar)
+        
         self.set_xy(25, 55)
         self.set_font("Helvetica", "B", 11)
         self.set_text_color(*azul_oscuro)
@@ -100,15 +94,13 @@ class ModernInvoice(FPDF):
 
         # 3. DETALLES DE PAGO Y CONTACTO
         self.set_y(70)
-        # Columna izquierda: Información de contacto
         contacto_x = 15
         self.set_x(contacto_x)
         self.set_font("Helvetica", "", 10)
         self.set_text_color(30, 30, 30)
         label_w_contact = 25
-        # Enviar emisor_info como lineas separadas para Phone, Email, Address
+        
         emisor_lines = data['emisor_info'].split('\n')
-        # Adaptar las líneas si es posible (asumiendo formato del sidebar original)
         phone = ""
         email = ""
         address = ""
@@ -134,7 +126,6 @@ class ModernInvoice(FPDF):
         self.set_font("Helvetica", "B", 10)
         self.multi_cell(75, 5, address.strip(), align='L')
 
-        # Columna derecha: Método de Pago
         pago_x = 115
         self.set_xy(pago_x, 70)
         self.set_font("Helvetica", "B", 12)
@@ -148,7 +139,7 @@ class ModernInvoice(FPDF):
         self.set_xy(pago_x, 77)
         self.cell(label_w_pago, 5, "Account No:")
         self.set_font("Helvetica", "B", 10)
-        self.cell(0, 5, data['inv_num'], ln=True) # Usamos Inv Num como ejemplo
+        self.cell(0, 5, data['inv_num'], ln=True)
 
         self.set_font("Helvetica", "", 10)
         self.set_xy(pago_x, 82)
@@ -162,28 +153,28 @@ class ModernInvoice(FPDF):
         self.set_font("Helvetica", "B", 10)
         self.cell(0, 5, "HENRRY'S GARAGE", ln=True)
 
-        self.set_y(100) # Espacio para la tabla
+        self.set_y(100)
 
 def generate_pdf(data, services, addresses):
-    # Combinar direcciones para el PDF
+    # Colores definidos para usar en todo el documento
+    azul_oscuro = (30, 60, 90)
+    naranja = (220, 130, 50)
+    gris_fondo = (245, 245, 245)
+
     project_addr_str = "\n".join([a for a in addresses if a.strip()])
     
     pdf = ModernInvoice()
     pdf.add_page()
-    # Preparar datos extendidos para el encabezado
+    
     header_data = data.copy()
     header_data['project_addr'] = project_addr_str
-    # Convertir dirección del emisor en una sola línea para la barra naranja
     emisor_lines = data['emisor_info'].split('\n')
     header_data['emisor_info_one_line'] = emisor_lines[0] + " | " + " ".join(emisor_lines[1:])
     
     pdf.draw_header(header_data)
     
-    # 4. TABLA DE SERVICIOS PROFESIONAL
+    # 4. TABLA DE SERVICIOS
     pdf.set_y(100)
-    
-    # Cabecera de la tabla (Azul oscuro, texto blanco bold)
-    azul_oscuro = (30, 60, 90)
     pdf.set_fill_color(*azul_oscuro)
     pdf.set_font("Helvetica", "B", 11)
     pdf.set_text_color(255, 255, 255)
@@ -198,13 +189,11 @@ def generate_pdf(data, services, addresses):
     current_x = 15
     for col in cols:
         align = "C" if col['name'] != "DESCRIPTION" else "L"
-        # padding para DESCRIPTION
         pdf.set_xy(current_x if col['name'] != "DESCRIPTION" else current_x+2, 100)
         pdf.cell(col['w'] if col['name'] != "DESCRIPTION" else col['w']-2, 10, col['name'], fill=True, align=align)
         current_x += col['w']
     pdf.ln()
 
-    # Filas de datos
     pdf.set_text_color(30, 30, 30)
     pdf.set_font("Helvetica", "", 10)
     total_gral = 0
@@ -224,11 +213,8 @@ def generate_pdf(data, services, addresses):
             
             align = "C" if col['name'] != "DESCRIPTION" else "L"
             
-            # Dibujar celda con borde inferior
             pdf.set_xy(current_x, current_y)
-            # Altura de celda mayor para multi_cell si es necesario para descripción
             pdf.cell(col['w'], 10, "", border='B')
-            # Texto dentro de la celda
             pdf.set_xy(current_x + (2 if col['name'] == "DESCRIPTION" else 0), current_y)
             pdf.cell(col['w'] - (2 if col['name'] == "DESCRIPTION" else 0), 10, val, align=align)
             
@@ -236,14 +222,12 @@ def generate_pdf(data, services, addresses):
         
         pdf.ln()
         current_y += 10
-        if current_y > 250: # Salto de página simple
+        if current_y > 250:
             pdf.add_page()
-            current_y = 60 # Reiniciar Y después del header en nueva página (se puede mejorar)
+            current_y = 60
             pdf.set_y(current_y)
-            # Re-dibujar cabecera de tabla opcionalmente
 
-    # 5. TOTALES, TÉRMINOS Y CONDICIONES, GRACIAS
-    # Totales (A la derecha, fondo gris claro con Total en azul)
+    # 5. TOTALES, TÉRMINOS Y CONDICIONES
     pdf.set_y(current_y + 10)
     totals_x = 115
     pdf.set_x(totals_x)
@@ -251,7 +235,6 @@ def generate_pdf(data, services, addresses):
     pdf.set_font("Helvetica", "B", 10)
     pdf.set_text_color(100, 100, 100)
     
-    # Filas de totales (Sub-total, Discount, Tax)
     labels = ["Sub-total:", "Discount:", "Tax (0%):"]
     vals = [f"${total_gral:,.2f}", "$0.00", "$0.00"]
     
@@ -259,9 +242,6 @@ def generate_pdf(data, services, addresses):
     total_col_w = 40
     val_col_w = 40
     
-    # Usamos celdas simples para Sub-total, Discount, Tax
-    # Estilizamos el cuadro de totales completo con fondo gris claro
-    gris_fondo = (245, 245, 245)
     pdf.set_fill_color(*gris_fondo)
     pdf.rect(totals_x - 5, totals_y - 2, 90, 30, 'F')
     
@@ -287,7 +267,6 @@ def generate_pdf(data, services, addresses):
     pdf.set_text_color(30, 30, 30)
     pdf.cell(val_col_w, 7, vals[2], align='R', ln=True)
 
-    # Fila de TOTAL (Fondo azul oscuro, texto blanco)
     pdf.set_xy(totals_x - 5, totals_y+21)
     pdf.set_fill_color(*azul_oscuro)
     pdf.cell(90, 12, "", fill=True)
@@ -296,11 +275,11 @@ def generate_pdf(data, services, addresses):
     pdf.set_font("Helvetica", "B", 16)
     pdf.set_text_color(255, 255, 255)
     pdf.cell(total_col_w, 12, "Total:", align='R')
-    # Valor del TOTAL grande
+    
     pdf.set_font("Helvetica", "B", 18)
     pdf.cell(val_col_w, 12, f"${total_gral:,.2f}", align='R')
 
-    # Términos y Condiciones (A la izquierda)
+    # Términos y Condiciones
     terms_y = current_y + 10
     pdf.set_y(terms_y)
     pdf.set_x(15)
@@ -311,7 +290,6 @@ def generate_pdf(data, services, addresses):
     
     pdf.set_font("Helvetica", "", 9)
     pdf.set_text_color(80, 80, 80)
-    # Reemplazamos la garantía original con el texto de términos y condiciones de la imagen
     terms_text = (
         "***WARRANTY BEGINS FROM THE DATE OF THE INVOICE***\n"
         "Please send payment within 30 days of receiving this invoice. There will be a 10% "
@@ -323,20 +301,17 @@ def generate_pdf(data, services, addresses):
     pdf.set_x(15)
     pdf.multi_cell(90, 5, terms_text, align="L")
     
-    # Gracias (Abajo, centrado)
+    # Gracias
     pdf.ln(10)
     pdf.set_font("Helvetica", "B", 14)
     pdf.set_text_color(*azul_oscuro)
     pdf.cell(0, 10, "THANK YOU FOR YOUR BUSINESS", ln=True, align="C")
 
-    # 6. PIE DE PÁGINA (Datos de contacto y firma) Adaptado al diseño de la imagen
-    # Datos de contacto con iconos (utilizando labels para recrear estructura)
+    # 6. PIE DE PÁGINA (Datos de contacto y firma)
     footer_x = 15
     pdf.set_x(footer_x)
     
-    # Enviar emisor_info como lineas separadas para Phone, Email, Address
     emisor_lines = data['emisor_info'].split('\n')
-    # Adaptar las líneas si es posible (asumiendo formato del sidebar original)
     phone = ""
     email = ""
     address = ""
@@ -365,13 +340,12 @@ def generate_pdf(data, services, addresses):
     pdf.set_font("Helvetica", "B", 10)
     pdf.multi_cell(75, 5, address.strip(), align='L')
 
-    # Firma (A la derecha)
+    # Firma
     signature_x = 115
-    pdf.set_xy(signature_x, pdf.get_y() - (5 * 2)) # Ajustar Y basado en multi_cell
+    pdf.set_xy(signature_x, pdf.get_y() - 10) 
     
     pdf.set_draw_color(*azul_oscuro)
     pdf.set_line_width(0.5)
-    # Línea de firma
     pdf.line(signature_x + 10, pdf.get_y(), 200, pdf.get_y())
     
     pdf.set_font("Helvetica", "B", 12)
@@ -386,9 +360,8 @@ def generate_pdf(data, services, addresses):
 
     # Franjas decorativas al pie
     pdf.set_fill_color(*naranja)
-    # Franja naranja
     pdf.rect(0, 285, 210, 3, 'F')
-    # Franja azul oscuro encima
+    
     pdf.set_fill_color(*azul_oscuro)
     pdf.rect(0, 280, 210, 5, 'F')
 
@@ -396,7 +369,6 @@ def generate_pdf(data, services, addresses):
 
 def display_pdf(pdf_bytes):
     base64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-    # Usamos un objeto embebido que funciona mejor en Chrome/Safari
     pdf_display = f'<embed src="data:application/pdf;base64,{base64_pdf}" width="100%" height="600" type="application/pdf">'
     st.markdown(pdf_display, unsafe_allow_html=True)
 
@@ -470,11 +442,10 @@ with tab1:
         except Exception as e:
             st.error(f"Error: {e}")
 
-# --- PESTAÑA DE HISTORIAL CORREGIDA ---
+# --- PESTAÑA DE HISTORIAL ---
 with tab2:
     st.subheader("📜 Saved Invoices")
     try:
-        # CORRECCIÓN: Agregar ttl=0 apaga el caché, obligando a Streamlit a actualizar la lista de inmediato.
         history_df = conn.query("SELECT id, inv_num, cliente, total_amount, fecha_hoy, project_addr FROM invoices ORDER BY id DESC", ttl=0)
         
         if not history_df.empty:
@@ -484,7 +455,6 @@ with tab2:
                     st.write(f"**Addresses:** {row['project_addr']}")
                     
                     if st.button(f"Re-Generate PDF #{row['inv_num']}", key=f"re_{row['id']}"):
-                        # También le decimos a las sub-consultas que ignoren el caché
                         items_df = conn.query(f"SELECT description as desc, quantity as qty, unit_price as price FROM invoice_items WHERE invoice_id = {row['id']}", ttl=0)
                         
                         items_list = items_df.to_dict('records')
