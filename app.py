@@ -4,193 +4,173 @@ from datetime import datetime
 import pandas as pd
 from sqlalchemy import text
 
-# --- CONFIGURACIÓN DE PÁGINA ---
-st.set_page_config(page_title="Henrry's Garage | Multi-Address System", layout="wide")
+# --- CONFIGURACIÓN ---
+st.set_page_config(page_title="Henrry's Garage | Modern System", layout="wide")
 
 # Conexión a Neon
 conn = st.connection("postgresql", type="sql")
 
+# --- LÓGICA DE ESTADO (Para manejar filas dinámicas sin tablas) ---
+if 'address_rows' not in st.session_state:
+    st.session_state.address_rows = [""]
+if 'service_rows' not in st.session_state:
+    st.session_state.service_rows = [{"desc": "", "qty": 1, "price": 0.0}]
+
+# --- CLASE PDF ---
 class ModernInvoice(FPDF):
     def draw_header(self, data):
         azul_oscuro = (30, 60, 90) 
         naranja = (220, 130, 50)  
-
         self.set_fill_color(*azul_oscuro)
         self.rect(0, 0, 210, 50, 'F')
-        
         self.set_draw_color(*naranja)
         self.set_line_width(1.2)
         self.line(0, 28, 110, 28)
-
         try:
             self.image("logo.png", 12, 8, 33) 
-            self.set_xy(52, 15) 
+            self.set_xy(52, 18) 
         except:
-            self.set_xy(15, 15)
-        
+            self.set_xy(15, 18)
         self.set_font("Helvetica", "B", 22)
         self.set_text_color(255, 255, 255)
         self.cell(0, 10, "HENRRY'S GARAGE DOOR SERVICE", ln=True)
-        
         self.set_y(32)
         if self.get_x() < 50: self.set_x(52)
         self.set_font("Helvetica", "", 9)
         self.multi_cell(0, 4, f"{data['emisor_info']}")
 
-def generate_pdf(data, items_df, addr_df):
+def generate_pdf(data, services, addresses):
     pdf = ModernInvoice()
     pdf.add_page()
     pdf.draw_header(data)
     
-    dark_blue = (30, 60, 90)
-    
-    pdf.set_y(55)
-    # BLOQUE IZQUIERDO: CLIENTE Y DIRECCIONES
+    # Datos de Cliente y Direcciones
+    pdf.set_y(60)
     pdf.set_font("Helvetica", "B", 10)
-    pdf.set_text_color(120, 120, 120)
+    pdf.set_text_color(100, 100, 100)
     pdf.cell(95, 5, "BILL TO:", ln=1)
-    
     pdf.set_font("Helvetica", "B", 12)
     pdf.set_text_color(30, 30, 30)
     pdf.cell(95, 7, data['client_name'].upper(), ln=1)
     
     pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(30, 30, 30)
     pdf.cell(95, 5, "Project Addresses:", ln=1)
-    
     pdf.set_font("Helvetica", "", 9)
-    pdf.set_text_color(80, 80, 80)
-    # Listar direcciones en casillas/líneas separadas
-    for addr in addr_df['Address']:
-        if addr.strip():
-            pdf.cell(5, 5, "- ", ln=0)
-            pdf.multi_cell(90, 5, addr)
+    for addr in addresses:
+        if addr: pdf.cell(0, 5, f"- {addr}", ln=True)
 
-    # BLOQUE DERECHO: DETALLES FACTURA
-    pdf.set_y(55)
-    pdf.set_x(115)
+    # Detalles de Factura a la derecha
+    pdf.set_y(60)
+    pdf.set_x(120)
     pdf.set_font("Helvetica", "B", 10)
-    pdf.set_text_color(120, 120, 120)
-    pdf.cell(85, 5, "INVOICE DETAILS:", ln=1)
-    
-    details_y = 62
-    details = [
-        ("Invoice #:", data['inv_num']),
-        ("Date:", data['date']),
-        ("Due Date:", data['due_date']),
-        ("Payable to:", data['payable_to'])
-    ]
-    
-    for label, val in details:
-        pdf.set_y(details_y)
-        pdf.set_x(115)
-        pdf.set_font("Helvetica", "B", 9)
-        pdf.set_text_color(30, 30, 30)
-        pdf.cell(30, 5, label)
-        pdf.set_font("Helvetica", "", 9)
-        pdf.cell(55, 5, val)
-        details_y += 5
-    
+    pdf.cell(0, 5, f"Invoice #: {data['inv_num']}", ln=True)
+    pdf.set_x(120)
+    pdf.cell(0, 5, f"Date: {data['date']}", ln=True)
+    pdf.set_x(120)
+    pdf.cell(0, 5, f"Due Date: {data['due_date']}", ln=True)
+
+    # Tabla de Servicios
     pdf.ln(15)
-    # TABLA DE PRODUCTOS
-    pdf.set_fill_color(*dark_blue)
-    pdf.set_font("Helvetica", "B", 10)
+    pdf.set_fill_color(30, 60, 90)
     pdf.set_text_color(255, 255, 255)
+    pdf.set_font("Helvetica", "B", 10)
     pdf.cell(110, 10, " DESCRIPTION", fill=True)
     pdf.cell(20, 10, "QTY", fill=True, align="C")
-    pdf.cell(30, 10, "PRICE", fill=True, align="C")
-    pdf.cell(30, 10, "TOTAL", fill=True, align="C", ln=1)
-    
+    pdf.cell(35, 10, "PRICE", fill=True, align="C")
+    pdf.cell(35, 10, "TOTAL", fill=True, align="C", ln=1)
+
     pdf.set_text_color(0, 0, 0)
-    pdf.set_font("Helvetica", "", 10)
-    total_val = 0
-    for _, row in items_df.iterrows():
-        l_total = row['Quantity'] * row['Unit Price']
-        total_val += l_total
-        pdf.cell(110, 10, f" {row['Description']}", border='B')
-        pdf.cell(20, 10, str(row['Quantity']), border='B', align="C")
-        pdf.cell(30, 10, f"${row['Unit Price']:,.2f}", border='B', align="C")
-        pdf.cell(30, 10, f"${l_total:,.2f}", border='B', align="C", ln=1)
-    
-    # TOTAL
+    total_gral = 0
+    for s in services:
+        line_total = s['qty'] * s['price']
+        total_gral += line_total
+        pdf.cell(110, 10, f" {s['desc']}", border='B')
+        pdf.cell(20, 10, str(s['qty']), border='B', align="C")
+        pdf.cell(35, 10, f"${s['price']:,.2f}", border='B', align="C")
+        pdf.cell(35, 10, f"${line_total:,.2f}", border='B', align="C", ln=1)
+
     pdf.ln(5)
     pdf.set_x(140)
     pdf.set_font("Helvetica", "B", 14)
     pdf.set_fill_color(220, 130, 50)
     pdf.set_text_color(255, 255, 255)
-    pdf.cell(60, 12, f" TOTAL: ${total_val:,.2f}", fill=True, align="C", ln=1)
-
-    # GARANTÍA
-    pdf.ln(10)
-    pdf.set_font("Helvetica", "B", 9)
-    pdf.set_text_color(*dark_blue)
-    pdf.cell(0, 5, "WARRANTY TERMS", ln=True)
-    pdf.set_font("Helvetica", "", 8)
-    pdf.set_text_color(100, 100, 100)
-    pdf.multi_cell(180, 4, "***WARRANTY BEGINS FROM THE DATE OF THE INVOICE***\n1-year warranty on factory defects/installation, 6 months in Opener.")
+    pdf.cell(60, 12, f" TOTAL: ${total_gral:,.2f}", fill=True, align="C")
     
     return pdf.output()
 
-# --- SIDEBAR (EMISOR EDITABLE) ---
+# --- INTERFAZ ---
+st.title("🚀 Henrry's Garage System")
+
+# Barra Lateral (Emisor)
 with st.sidebar:
     st.header("⚙️ My Business Info")
     my_address = st.text_area("Your Header Info", "31411 Terri Ln, Magnolia, TX 77354\n(661) 648-6043 | alemanperez99@gmail.com")
     my_payable = st.text_input("Payable to", "Henrry Perez")
 
-# --- INTERFAZ PRINCIPAL ---
-st.title("🛠️ Henrry's Garage Invoice System")
+# SECCIÓN 1: DATOS GENERALES
+with st.expander("👤 Client & Invoice Details", expanded=True):
+    c1, c2, c3 = st.columns([1,2,1])
+    inv_no = c1.text_input("Invoice #")
+    c_name = c2.text_input("Client Name")
+    due_d = c3.date_input("Due Date")
 
-col1, col2 = st.columns(2)
-inv_no = col1.text_input("Invoice #")
-c_name = col2.text_input("Client Name")
-
-# CASILLAS SEPARADAS PARA DIRECCIONES
+# SECCIÓN 2: DIRECCIONES (Dinámicas)
 st.subheader("📍 Project Addresses")
-addr_df = st.data_editor(
-    pd.DataFrame([{"Address": ""}]),
-    num_rows="dynamic", use_container_width=True, key="addr_editor"
-)
+for i, addr in enumerate(st.session_state.address_rows):
+    col_addr, col_del = st.columns([0.9, 0.1])
+    st.session_state.address_rows[i] = col_addr.text_input(f"Address {i+1}", value=addr, key=f"addr_{i}")
+    if col_del.button("🗑️", key=f"del_addr_{i}"):
+        st.session_state.address_rows.pop(i)
+        st.rerun()
+if st.button("➕ Add Address"):
+    st.session_state.address_rows.append("")
+    st.rerun()
 
-# CASILLAS SEPARADAS PARA PRODUCTOS
+# SECCIÓN 3: SERVICIOS (Dinámicos)
 st.subheader("📦 Services & Products")
-items_df = st.data_editor(
-    pd.DataFrame([{"Description": "", "Quantity": 1, "Unit Price": 0.0}]),
-    num_rows="dynamic", use_container_width=True, key="item_editor"
-)
+total_preview = 0
+for i, serv in enumerate(st.session_state.service_rows):
+    col_d, col_q, col_p, col_x = st.columns([0.5, 0.15, 0.25, 0.1])
+    st.session_state.service_rows[i]['desc'] = col_d.text_input("Description", value=serv['desc'], key=f"desc_{i}")
+    st.session_state.service_rows[i]['qty'] = col_q.number_input("Qty", min_value=1, value=serv['qty'], key=f"qty_{i}")
+    st.session_state.service_rows[i]['price'] = col_p.number_input("Price", min_value=0.0, value=serv['price'], key=f"price_{i}")
+    total_preview += st.session_state.service_rows[i]['qty'] * st.session_state.service_rows[i]['price']
+    if col_x.button("🗑️", key=f"del_serv_{i}"):
+        st.session_state.service_rows.pop(i)
+        st.rerun()
 
-due_date = st.date_input("Due Date")
+st.markdown(f"### **Current Total: ${total_preview:,.2f}**")
+if st.button("➕ Add Service"):
+    st.session_state.service_rows.append({"desc": "", "qty": 1, "price": 0.0})
+    st.rerun()
 
-if st.button("SAVE & GENERATE PDF"):
-    total_invoice = (items_df['Quantity'] * items_df['Unit Price']).sum()
+# BOTÓN FINAL
+if st.button("💾 SAVE & GENERATE PDF"):
     hoy = datetime.now().strftime("%m/%d/%Y")
-    
-    # Unimos las direcciones en un solo texto para la base de datos
-    all_addrs = " | ".join(addr_df['Address'].tolist())
-
+    # Guardar en Neon (Cabecera)
     try:
         with conn.session as session:
+            # Lógica para insertar cabecera y luego items uno a uno
+            all_addrs = " | ".join(st.session_state.address_rows)
             res = session.execute(text("""
                 INSERT INTO invoices (invoice_number, cliente, project_addr, total_amount, fecha_hoy)
                 VALUES (:inv, :clie, :proj, :total, :hoy) RETURNING id
-            """), {"inv": inv_no, "clie": c_name, "proj": all_addrs, "total": float(total_invoice), "hoy": hoy})
+            """), {"inv": inv_no, "clie": c_name, "proj": all_addrs, "total": total_preview, "hoy": hoy})
             invoice_id = res.fetchone()[0]
             
-            for _, row in items_df.iterrows():
+            for s in st.session_state.service_rows:
                 session.execute(text("""
                     INSERT INTO invoice_items (invoice_id, description, quantity, unit_price)
                     VALUES (:iid, :desc, :qty, :prc)
-                """), {"iid": invoice_id, "desc": row['Description'], "qty": int(row['Quantity']), "prc": float(row['Unit Price'])})
+                """), {"iid": invoice_id, "desc": s['desc'], "qty": s['qty'], "prc": s['price']})
             session.commit()
             
-        st.success("Data Saved in Neon!")
-        
         pdf_info = {
             "emisor_info": my_address, "client_name": c_name, "inv_num": inv_no,
-            "date": hoy, "due_date": due_date.strftime("%m/%d/%Y"), "payable_to": my_payable
+            "date": hoy, "due_date": due_d.strftime("%m/%d/%Y"), "payable_to": my_payable
         }
-        
-        pdf_bytes = generate_pdf(pdf_info, items_df, addr_df)
+        pdf_bytes = generate_pdf(pdf_info, st.session_state.service_rows, st.session_state.address_rows)
         st.download_button("📥 Download PDF", data=bytes(pdf_bytes), file_name=f"Invoice_{inv_no}.pdf")
-        
+        st.success("Successfully Saved in Neon!")
     except Exception as e:
         st.error(f"Error: {e}")
