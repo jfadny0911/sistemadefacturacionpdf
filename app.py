@@ -259,14 +259,12 @@ def generate_pdf(data, services, addresses):
     footer_y = 250
     signature_x = 130
     
-    # === IMPRIMIR FIRMA CORREGIDA ===
+    # === IMPRIMIR FIRMA MÁS GRANDE ===
     if data.get('signature_path') and os.path.exists(data['signature_path']):
         try:
-            # AJUSTE AQUÍ:
-            # 1. Se subió la posición "Y" a footer_y - 36 (más arriba)
-            # 2. Se fijó la ALTURA (h=34) en lugar del ancho (w=0). 
-            # Esto evita que una firma muy alargada cruce la línea inferior.
-            pdf.image(data['signature_path'], x=signature_x + 15, y=footer_y - 36, w=0, h=34)
+            # AJUSTE: Altura aumentada a 55, posición subida a footer_y - 56
+            # Esto la hace un 60% más grande y la mantiene arriba de la línea azul.
+            pdf.image(data['signature_path'], x=signature_x + 5, y=footer_y - 56, w=0, h=55)
         except Exception:
             pass
 
