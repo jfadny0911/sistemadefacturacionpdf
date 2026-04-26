@@ -4,6 +4,7 @@ from datetime import datetime
 import pandas as pd
 from sqlalchemy import text
 import base64
+import os
 
 # --- CONFIGURACIÓN DE PÁGINA ---
 st.set_page_config(page_title="Henrry's Garage | Professional System", layout="wide")
@@ -17,41 +18,37 @@ if 'address_rows' not in st.session_state:
 if 'service_rows' not in st.session_state:
     st.session_state.service_rows = [{"desc": "", "qty": 1, "price": 0.0}]
 
-# --- CLASE PDF (CON FOCUS EN EL CLIENTE) ---
+# --- CLASE PDF PROFESIONAL ---
 class ModernInvoice(FPDF):
     def draw_header(self, data):
         self.azul_vivo = (22, 58, 105)    
         self.naranja_vivo = (255, 165, 0) 
         self.gris_fondo = (245, 245, 245) 
 
-        # 1. ENCABEZADO SUPERIOR (Datos del Administrador)
+        # 1. ENCABEZADO SUPERIOR
         self.set_fill_color(*self.azul_vivo)
-        self.rect(0, 0, 210, 45, 'F') # Altura ajustada
+        self.rect(0, 0, 210, 45, 'F') 
         
         self.set_fill_color(*self.naranja_vivo)
         self.rect(0, 0, 210, 2, 'F')
 
-        # Logo
         try:
             self.image("logo.png", 10, 6, 36) 
         except:
             pass
 
-        # Bloque ADMINISTRADOR (Donde pediste, debajo del logo)
         admin_x = 52 
         self.set_xy(admin_x, 8)
         self.set_font("Helvetica", "B", 18)
         self.set_text_color(255, 255, 255)
         self.cell(70, 8, "HENRRY'S GARAGE", ln=True) 
         
-        # Datos de tu empresa en gris claro para que se vea elegante
         self.set_xy(admin_x, 18)
         self.set_font("Helvetica", "", 10)
         self.set_text_color(210, 210, 210) 
         admin_info = f"{data['address']}\nPhone: {data['phone']}\nEmail: {data['email']}"
         self.multi_cell(75, 5, admin_info, align='L') 
 
-        # Bloque INVOICE (Derecha)
         detalles_x = 135
         self.set_xy(120, 8)
         self.set_font("Helvetica", "B", 40)
@@ -78,7 +75,7 @@ class ModernInvoice(FPDF):
         self.set_font("Helvetica", "B", 10)
         self.cell(40, 5, f"{data['date']}", align="R", ln=False)
 
-        # 2. BARRA NARANJA (Línea divisoria limpia)
+        # 2. BARRA NARANJA
         self.set_fill_color(*self.naranja_vivo)
         self.rect(0, 45, 210, 5, 'F')
         
@@ -89,25 +86,21 @@ class ModernInvoice(FPDF):
         self.set_y(58)
         cliente_x = 15
         
-        # Título Invoice To en Naranja
         self.set_xy(cliente_x, 58)
         self.set_font("Helvetica", "B", 12)
         self.set_text_color(*self.naranja_vivo)
         self.cell(80, 6, "INVOICE TO:", ln=True)
         
-        # Nombre del cliente grande y en azul
         self.set_xy(cliente_x, 64)
         self.set_font("Helvetica", "B", 15)
         self.set_text_color(*self.azul_vivo)
         self.cell(80, 6, data['client_name'].upper(), ln=True)
         
-        # Dirección del cliente clara
         self.set_xy(cliente_x, 71)
         self.set_font("Helvetica", "", 11)
         self.set_text_color(30, 30, 30)
         self.multi_cell(80, 5, data['project_addr'], align='L')
 
-        # PAYMENT METHOD (Derecha)
         pago_x = 120
         self.set_xy(pago_x, 58)
         self.set_font("Helvetica", "B", 12)
@@ -151,7 +144,6 @@ def generate_pdf(data, services, addresses):
     pdf.draw_header(header_data)
     
     # 4. TABLA DE SERVICIOS
-    # Se subió a 95 para aprovechar el espacio que dejó la barra gruesa
     pdf.set_y(95)
     pdf.set_fill_color(*pdf.azul_vivo)
     pdf.set_font("Helvetica", "B", 11)
@@ -268,10 +260,23 @@ def generate_pdf(data, services, addresses):
     pdf.set_text_color(*pdf.azul_vivo)
     pdf.cell(0, 10, "THANK YOU FOR YOUR BUSINESS", ln=True, align="C")
 
-    # 6. PIE DE PÁGINA
+    # 6. PIE DE PÁGINA Y FIRMA FIJA
     footer_y = 250
-    
     signature_x = 130
+    
+    # === INSERTAR LA FIRMA DE HENRRY ===
+    # Busca la imagen "firma.png" o "firma.jpg" en la misma carpeta
+    if os.path.exists("firma.png"):
+        try:
+            pdf.image("firma.png", x=signature_x + 10, y=footer_y - 24, w=45)
+        except Exception:
+            pass
+    elif os.path.exists("firma.jpg"):
+        try:
+            pdf.image("firma.jpg", x=signature_x + 10, y=footer_y - 24, w=45)
+        except Exception:
+            pass
+
     pdf.set_draw_color(*pdf.azul_vivo)
     pdf.set_line_width(0.5)
     pdf.line(signature_x, footer_y, 200, footer_y)
@@ -348,8 +353,11 @@ with tab1:
         st.session_state.service_rows.append({"desc": "", "qty": 1, "price": 0.0})
         st.rerun()
 
-    if st.button("💾 SAVE & GENERATE"):
+    st.markdown("---")
+
+    if st.button("💾 SAVE & GENERATE PDF"):
         hoy = datetime.now().strftime("%m/%d/%Y")
+        
         try:
             with conn.session as session:
                 all_addrs = " | ".join([a for a in st.session_state.address_rows if a.strip()])
@@ -373,6 +381,7 @@ with tab1:
             st.download_button("📥 Download PDF", data=bytes(pdf_bytes), file_name=f"Invoice_{inv_no}.pdf", mime="application/pdf")
             st.subheader("📄 Preview")
             display_pdf(bytes(pdf_bytes))
+                
         except Exception as e:
             st.error(f"Error: {e}")
 
