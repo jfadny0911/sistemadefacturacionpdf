@@ -259,11 +259,14 @@ def generate_pdf(data, services, addresses):
     footer_y = 250
     signature_x = 130
     
-    # === IMPRIMIR FIRMA ===
+    # === IMPRIMIR FIRMA CORREGIDA ===
     if data.get('signature_path') and os.path.exists(data['signature_path']):
         try:
-            # Ajustamos la imagen para que se vea perfecta (w=45)
-            pdf.image(data['signature_path'], x=signature_x + 10, y=footer_y - 25, w=45)
+            # AJUSTE AQUÍ:
+            # 1. Se subió la posición "Y" a footer_y - 36 (más arriba)
+            # 2. Se fijó la ALTURA (h=34) en lugar del ancho (w=0). 
+            # Esto evita que una firma muy alargada cruce la línea inferior.
+            pdf.image(data['signature_path'], x=signature_x + 15, y=footer_y - 36, w=0, h=34)
         except Exception:
             pass
 
@@ -298,7 +301,6 @@ def display_pdf(pdf_bytes):
 # --- INTERFAZ ---
 st.title("🛠️ Henrry's Garage System")
 
-# AHORA PUEDES SUBIR LA FIRMA DIRECTAMENTE DESDE AQUI
 with st.sidebar:
     st.header("⚙️ My Business Info")
     my_address = st.text_input("Address", "31411 Terri Ln, Magnolia, TX 77354")
@@ -352,7 +354,6 @@ with tab1:
     if st.button("💾 SAVE & GENERATE PDF"):
         hoy = datetime.now().strftime("%m/%d/%Y")
         
-        # Procesar y guardar la firma que subiste en la barra lateral temporalmente
         temp_sig_path = None
         if uploaded_signature is not None:
             temp_sig_path = "temp_firma.png"
@@ -375,7 +376,7 @@ with tab1:
                 "address": my_address, "phone": my_phone, "email": my_email,
                 "client_name": c_name, "inv_num": inv_no, "date": hoy, 
                 "due_date": due_d.strftime("%m/%d/%Y"), "payable_to": my_payable,
-                "signature_path": temp_sig_path # Pasamos la ruta de la firma al PDF
+                "signature_path": temp_sig_path 
             }
             pdf_bytes = generate_pdf(pdf_info, st.session_state.service_rows, st.session_state.address_rows)
             
@@ -405,7 +406,6 @@ with tab2:
                         items_list = items_df.to_dict('records')
                         addr_list = str(row['project_addr']).split(" | ")
                         
-                        # Revisamos si hay firma cargada en el sidebar para también usarla en el historial
                         temp_sig_path_hist = None
                         if uploaded_signature is not None:
                             temp_sig_path_hist = "temp_firma_hist.png"
