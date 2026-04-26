@@ -264,10 +264,10 @@ def generate_pdf(data, services, addresses):
     
     if firma_file:
         try:
-            # AJUSTE DE PROPORCIÓN: 
-            # Al forzar w=60 y h=30, la imagen se estira a los lados y se "acuesta"
-            # haciéndola ver mucho más horizontal.
-            pdf.image(firma_file, x=signature_x + 5, y=footer_y - 32, w=60, h=30)
+            # AJUSTE DE PROPORCIÓN RESTAURADO:
+            # w=0 respeta la proporción original de tu firma.
+            # h=50 asegura que sea de buen tamaño, y y=footer_y-52 la sube para no chocar con la línea.
+            pdf.image(firma_file, x=signature_x + 5, y=footer_y - 52, w=0, h=50)
         except Exception:
             pass
 
@@ -308,7 +308,6 @@ with st.sidebar:
     my_phone = st.text_input("Phone", "(661) 648-6043")
     my_email = st.text_input("Email", "alemanperez99@gmail.com")
     my_payable = st.text_input("Payable to", "Henrry Perez")
-    # ¡Se eliminó el botón de subir firmas manual!
 
 tab1, tab2 = st.tabs(["🆕 Create Invoice", "📜 Invoice History"])
 
@@ -352,7 +351,7 @@ with tab1:
 
     if st.button("💾 SAVE & GENERATE PDF"):
         hoy = datetime.now().strftime("%m/%d/%Y")
-        
+
         try:
             with conn.session as session:
                 all_addrs = " | ".join([a for a in st.session_state.address_rows if a.strip()])
