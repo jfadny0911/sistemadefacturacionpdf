@@ -259,15 +259,13 @@ def generate_pdf(data, services, addresses):
     footer_y = 250
     signature_x = 130
     
-    # El código busca la firma en los archivos de tu proyecto
     firma_file = "firma.png" if os.path.exists("firma.png") else ("firma.jpg" if os.path.exists("firma.jpg") else None)
     
     if firma_file:
         try:
-            # AJUSTE DE PROPORCIÓN RESTAURADO:
-            # w=0 respeta la proporción original de tu firma.
-            # h=50 asegura que sea de buen tamaño, y y=footer_y-52 la sube para no chocar con la línea.
-            pdf.image(firma_file, x=signature_x + 5, y=footer_y - 52, w=0, h=50)
+            # AJUSTE DEFINITIVO DE CENTRADO:
+            # Se sumaron +25 al eje X para empujarla al centro exacto de la línea.
+            pdf.image(firma_file, x=signature_x + 25, y=footer_y - 52, w=0, h=50)
         except Exception:
             pass
 
