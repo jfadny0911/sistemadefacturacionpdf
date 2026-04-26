@@ -255,16 +255,19 @@ def generate_pdf(data, services, addresses):
     pdf.set_text_color(*pdf.azul_vivo)
     pdf.cell(0, 10, "THANK YOU FOR YOUR BUSINESS", ln=True, align="C")
 
-    # 6. PIE DE PÁGINA Y FIRMA
+    # 6. PIE DE PÁGINA Y FIRMA AUTOMÁTICA DESDE GITHUB
     footer_y = 250
     signature_x = 130
     
-    # === IMPRIMIR FIRMA MÁS GRANDE ===
-    if data.get('signature_path') and os.path.exists(data['signature_path']):
+    # El código busca la firma en los archivos de tu proyecto
+    firma_file = "firma.png" if os.path.exists("firma.png") else ("firma.jpg" if os.path.exists("firma.jpg") else None)
+    
+    if firma_file:
         try:
-            # AJUSTE: Altura aumentada a 55, posición subida a footer_y - 56
-            # Esto la hace un 60% más grande y la mantiene arriba de la línea azul.
-            pdf.image(data['signature_path'], x=signature_x + 5, y=footer_y - 56, w=0, h=55)
+            # AJUSTE DE PROPORCIÓN: 
+            # Al forzar w=60 y h=30, la imagen se estira a los lados y se "acuesta"
+            # haciéndola ver mucho más horizontal.
+            pdf.image(firma_file, x=signature_x + 5, y=footer_y - 32, w=60, h=30)
         except Exception:
             pass
 
@@ -305,9 +308,7 @@ with st.sidebar:
     my_phone = st.text_input("Phone", "(661) 648-6043")
     my_email = st.text_input("Email", "alemanperez99@gmail.com")
     my_payable = st.text_input("Payable to", "Henrry Perez")
-    st.markdown("---")
-    st.subheader("✍️ My Signature")
-    uploaded_signature = st.file_uploader("Upload Signature (PNG/JPG)", type=['png', 'jpg', 'jpeg'])
+    # ¡Se eliminó el botón de subir firmas manual!
 
 tab1, tab2 = st.tabs(["🆕 Create Invoice", "📜 Invoice History"])
 
@@ -352,12 +353,6 @@ with tab1:
     if st.button("💾 SAVE & GENERATE PDF"):
         hoy = datetime.now().strftime("%m/%d/%Y")
         
-        temp_sig_path = None
-        if uploaded_signature is not None:
-            temp_sig_path = "temp_firma.png"
-            with open(temp_sig_path, "wb") as f:
-                f.write(uploaded_signature.getbuffer())
-
         try:
             with conn.session as session:
                 all_addrs = " | ".join([a for a in st.session_state.address_rows if a.strip()])
@@ -373,8 +368,7 @@ with tab1:
             pdf_info = {
                 "address": my_address, "phone": my_phone, "email": my_email,
                 "client_name": c_name, "inv_num": inv_no, "date": hoy, 
-                "due_date": due_d.strftime("%m/%d/%Y"), "payable_to": my_payable,
-                "signature_path": temp_sig_path 
+                "due_date": due_d.strftime("%m/%d/%Y"), "payable_to": my_payable
             }
             pdf_bytes = generate_pdf(pdf_info, st.session_state.service_rows, st.session_state.address_rows)
             
@@ -403,18 +397,11 @@ with tab2:
                         
                         items_list = items_df.to_dict('records')
                         addr_list = str(row['project_addr']).split(" | ")
-                        
-                        temp_sig_path_hist = None
-                        if uploaded_signature is not None:
-                            temp_sig_path_hist = "temp_firma_hist.png"
-                            with open(temp_sig_path_hist, "wb") as f:
-                                f.write(uploaded_signature.getbuffer())
 
                         pdf_info_re = {
                             "address": my_address, "phone": my_phone, "email": my_email,
                             "client_name": row['cliente'], "inv_num": row['inv_num'],
-                            "date": row['fecha_hoy'], "due_date": row['fecha_hoy'], "payable_to": my_payable,
-                            "signature_path": temp_sig_path_hist
+                            "date": row['fecha_hoy'], "due_date": row['fecha_hoy'], "payable_to": my_payable
                         }
                         re_pdf_bytes = generate_pdf(pdf_info_re, items_list, addr_list)
                         st.download_button("📥 Click here to Download", data=bytes(re_pdf_bytes), file_name=f"Invoice_{row['inv_num']}.pdf", key=f"dl_{row['id']}")
