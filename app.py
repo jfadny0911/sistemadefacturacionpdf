@@ -25,7 +25,6 @@ class ModernInvoice(FPDF):
         self.naranja_vivo = (255, 165, 0) 
         self.gris_fondo = (245, 245, 245) 
 
-        # 1. ENCABEZADO SUPERIOR
         self.set_fill_color(*self.azul_vivo)
         self.rect(0, 0, 210, 45, 'F') 
         
@@ -75,14 +74,12 @@ class ModernInvoice(FPDF):
         self.set_font("Helvetica", "B", 10)
         self.cell(40, 5, f"{data['date']}", align="R", ln=False)
 
-        # 2. BARRA NARANJA
         self.set_fill_color(*self.naranja_vivo)
         self.rect(0, 45, 210, 5, 'F')
         
         self.set_fill_color(*self.azul_vivo)
         self.rect(0, 45, 8, 5, 'F')
 
-        # 3. MEGA FOCUS EN EL CLIENTE Y PAGO
         self.set_y(58)
         cliente_x = 15
         
@@ -143,7 +140,6 @@ def generate_pdf(data, services, addresses):
     
     pdf.draw_header(header_data)
     
-    # 4. TABLA DE SERVICIOS
     pdf.set_y(95)
     pdf.set_fill_color(*pdf.azul_vivo)
     pdf.set_font("Helvetica", "B", 11)
@@ -200,7 +196,6 @@ def generate_pdf(data, services, addresses):
             current_y = 20
             pdf.set_y(current_y)
 
-    # 5. TOTALES, TÉRMINOS Y CONDICIONES
     pdf.set_y(current_y + 10)
     totals_x = 110
     
@@ -260,20 +255,15 @@ def generate_pdf(data, services, addresses):
     pdf.set_text_color(*pdf.azul_vivo)
     pdf.cell(0, 10, "THANK YOU FOR YOUR BUSINESS", ln=True, align="C")
 
-    # 6. PIE DE PÁGINA Y FIRMA FIJA
+    # 6. PIE DE PÁGINA Y FIRMA
     footer_y = 250
     signature_x = 130
     
-    # === INSERTAR LA FIRMA DE HENRRY ===
-    # Busca la imagen "firma.png" o "firma.jpg" en la misma carpeta
-    if os.path.exists("firma.png"):
+    # === IMPRIMIR FIRMA ===
+    if data.get('signature_path') and os.path.exists(data['signature_path']):
         try:
-            pdf.image("firma.png", x=signature_x + 10, y=footer_y - 24, w=45)
-        except Exception:
-            pass
-    elif os.path.exists("firma.jpg"):
-        try:
-            pdf.image("firma.jpg", x=signature_x + 10, y=footer_y - 24, w=45)
+            # Ajustamos la imagen para que se vea perfecta (w=45)
+            pdf.image(data['signature_path'], x=signature_x + 10, y=footer_y - 25, w=45)
         except Exception:
             pass
 
@@ -308,12 +298,16 @@ def display_pdf(pdf_bytes):
 # --- INTERFAZ ---
 st.title("🛠️ Henrry's Garage System")
 
+# AHORA PUEDES SUBIR LA FIRMA DIRECTAMENTE DESDE AQUI
 with st.sidebar:
     st.header("⚙️ My Business Info")
     my_address = st.text_input("Address", "31411 Terri Ln, Magnolia, TX 77354")
     my_phone = st.text_input("Phone", "(661) 648-6043")
     my_email = st.text_input("Email", "alemanperez99@gmail.com")
     my_payable = st.text_input("Payable to", "Henrry Perez")
+    st.markdown("---")
+    st.subheader("✍️ My Signature")
+    uploaded_signature = st.file_uploader("Upload Signature (PNG/JPG)", type=['png', 'jpg', 'jpeg'])
 
 tab1, tab2 = st.tabs(["🆕 Create Invoice", "📜 Invoice History"])
 
@@ -358,6 +352,13 @@ with tab1:
     if st.button("💾 SAVE & GENERATE PDF"):
         hoy = datetime.now().strftime("%m/%d/%Y")
         
+        # Procesar y guardar la firma que subiste en la barra lateral temporalmente
+        temp_sig_path = None
+        if uploaded_signature is not None:
+            temp_sig_path = "temp_firma.png"
+            with open(temp_sig_path, "wb") as f:
+                f.write(uploaded_signature.getbuffer())
+
         try:
             with conn.session as session:
                 all_addrs = " | ".join([a for a in st.session_state.address_rows if a.strip()])
@@ -373,7 +374,8 @@ with tab1:
             pdf_info = {
                 "address": my_address, "phone": my_phone, "email": my_email,
                 "client_name": c_name, "inv_num": inv_no, "date": hoy, 
-                "due_date": due_d.strftime("%m/%d/%Y"), "payable_to": my_payable
+                "due_date": due_d.strftime("%m/%d/%Y"), "payable_to": my_payable,
+                "signature_path": temp_sig_path # Pasamos la ruta de la firma al PDF
             }
             pdf_bytes = generate_pdf(pdf_info, st.session_state.service_rows, st.session_state.address_rows)
             
@@ -403,10 +405,18 @@ with tab2:
                         items_list = items_df.to_dict('records')
                         addr_list = str(row['project_addr']).split(" | ")
                         
+                        # Revisamos si hay firma cargada en el sidebar para también usarla en el historial
+                        temp_sig_path_hist = None
+                        if uploaded_signature is not None:
+                            temp_sig_path_hist = "temp_firma_hist.png"
+                            with open(temp_sig_path_hist, "wb") as f:
+                                f.write(uploaded_signature.getbuffer())
+
                         pdf_info_re = {
                             "address": my_address, "phone": my_phone, "email": my_email,
                             "client_name": row['cliente'], "inv_num": row['inv_num'],
-                            "date": row['fecha_hoy'], "due_date": row['fecha_hoy'], "payable_to": my_payable
+                            "date": row['fecha_hoy'], "due_date": row['fecha_hoy'], "payable_to": my_payable,
+                            "signature_path": temp_sig_path_hist
                         }
                         re_pdf_bytes = generate_pdf(pdf_info_re, items_list, addr_list)
                         st.download_button("📥 Click here to Download", data=bytes(re_pdf_bytes), file_name=f"Invoice_{row['inv_num']}.pdf", key=f"dl_{row['id']}")
