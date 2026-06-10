@@ -255,28 +255,25 @@ def generate_pdf(data, services, addresses):
     pdf.set_text_color(*pdf.azul_vivo)
     pdf.cell(0, 10, "THANK YOU FOR YOUR BUSINESS", ln=True, align="C")
 
-    # 6. PIE DE PÁGINA Y FIRMA EN TEXTO ELEGANTE
-    footer_y = 250
+    # 6. PIE DE PÁGINA Y FIRMA MODERNA
+    footer_y = 252
     signature_x = 130
     
-    # Renderizado de "Henrry Perez" en letra estilizada (Times) y negrita arriba de la línea
-    pdf.set_xy(signature_x, footer_y - 12)
-    pdf.set_font("Times", "B", 18)  # Times es un tipo de letra clásico y elegante ideal para firmas
+    # Firma moderna: Fuente corporativa estilizada, gruesa ("B") e inclinada/itálica ("I")
+    pdf.set_xy(signature_x, footer_y - 11)
+    pdf.set_font("Times", "BI", 16)  
     pdf.set_text_color(*pdf.azul_vivo)
-    pdf.cell(70, 10, "Henrry Perez", ln=True, align='C')
+    pdf.cell(70, 8, "Henrry Perez", ln=True, align='C')
 
+    # Línea divisoria elegante
     pdf.set_draw_color(*pdf.azul_vivo)
     pdf.set_line_width(0.5)
     pdf.line(signature_x, footer_y, 200, footer_y)
     
-    pdf.set_xy(signature_x, footer_y + 2)
-    pdf.set_font("Helvetica", "B", 12)
-    pdf.set_text_color(*pdf.azul_vivo)
-    pdf.cell(70, 7, data['payable_to'].upper(), ln=True, align='C')
-    
+    # Cargo de Administrador directo debajo de la línea (Nombre repetido eliminado)
+    pdf.set_xy(signature_x, footer_y + 2.5)
     pdf.set_font("Helvetica", "", 10)
     pdf.set_text_color(100, 100, 100)
-    pdf.set_x(signature_x)
     pdf.cell(70, 5, "Administrator", align='C')
 
     pdf.set_fill_color(*pdf.azul_vivo)
