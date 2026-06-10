@@ -374,7 +374,11 @@ with tab1:
 with tab2:
     st.subheader("📜 Saved Invoices")
     try:
-        history_df = conn.query("SELECT id, inv_num, cliente, total_amount, fecha_hoy, project_addr FROM invoices ORDER BY id DESC", ttl=0)
+        # CORRECCIÓN DE ERROR DE CONEXIÓN SSL EN NEON:
+        # Se reemplaza conn.query por una sesión explícita con SQLAlchemy para refrescar conexiones rotas.
+        with conn.session as session:
+            result = session.execute(text("SELECT id, inv_num, cliente, total_amount, fecha_hoy, project_addr FROM invoices ORDER BY id DESC"))
+            history_df = pd.DataFrame(result.fetchall(), columns=result.keys())
         
         if not history_df.empty:
             for index, row in history_df.iterrows():
@@ -383,7 +387,9 @@ with tab2:
                     st.write(f"**Addresses:** {row['project_addr']}")
                     
                     if st.button(f"Re-Generate PDF #{row['inv_num']}", key=f"re_{row['id']}"):
-                        items_df = conn.query(f"SELECT description as desc, quantity as qty, unit_price as price FROM invoice_items WHERE invoice_id = {row['id']}", ttl=0)
+                        with conn.session as session:
+                            items_result = session.execute(text(f"SELECT description as desc, quantity as qty, unit_price as price FROM invoice_items WHERE invoice_id = {row['id']}"))
+                            items_df = pd.DataFrame(items_result.fetchall(), columns=items_result.keys())
                         
                         items_list = items_df.to_dict('records')
                         addr_list = str(row['project_addr']).split(" | ")
