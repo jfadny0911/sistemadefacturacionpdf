@@ -256,18 +256,7 @@ def generate_pdf(data, services, addresses):
     pdf.cell(0, 10, "THANK YOU FOR YOUR BUSINESS", ln=True, align="C")
 
     # 6. PIE DE PÁGINA Y FIRMA AUTOMÁTICA DESDE GITHUB
-    footer_y = 250
-    signature_x = 130
-    
-    firma_file = "firma.png" if os.path.exists("firma.png") else ("firma.jpg" if os.path.exists("firma.jpg") else None)
-    
-    if firma_file:
-        try:
-            # AJUSTE DEFINITIVO DE CENTRADO:
-            # Se sumaron +25 al eje X para empujarla al centro exacto de la línea.
-            pdf.image(firma_file, x=signature_x + 25, y=footer_y - 52, w=0, h=50)
-        except Exception:
-            pass
+  
 
     pdf.set_draw_color(*pdf.azul_vivo)
     pdf.set_line_width(0.5)
