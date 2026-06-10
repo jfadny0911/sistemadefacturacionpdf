@@ -255,20 +255,15 @@ def generate_pdf(data, services, addresses):
     pdf.set_text_color(*pdf.azul_vivo)
     pdf.cell(0, 10, "THANK YOU FOR YOUR BUSINESS", ln=True, align="C")
 
-    # 6. PIE DE PÁGINA Y FIRMA AUTOMÁTICA DESDE GITHUB
-      footer_y = 250
+    # 6. PIE DE PÁGINA Y FIRMA EN TEXTO ELEGANTE
+    footer_y = 250
     signature_x = 130
     
-    firma_file = "firma.png" if os.path.exists("firma.png") else ("firma.jpg" if os.path.exists("firma.jpg") else None)
-    
-    if firma_file:
-        try:
-            # AJUSTE DEFINITIVO DE CENTRADO:
-            # Se sumaron +25 al eje X para empujarla al centro exacto de la línea.
-            pdf.image(firma_file, x=signature_x + 25, y=footer_y - 52, w=0, h=50)
-        except Exception:
-            pass
-  
+    # Renderizado de "Henrry Perez" en letra estilizada (Times) y negrita arriba de la línea
+    pdf.set_xy(signature_x, footer_y - 12)
+    pdf.set_font("Times", "B", 18)  # Times es un tipo de letra clásico y elegante ideal para firmas
+    pdf.set_text_color(*pdf.azul_vivo)
+    pdf.cell(70, 10, "Henrry Perez", ln=True, align='C')
 
     pdf.set_draw_color(*pdf.azul_vivo)
     pdf.set_line_width(0.5)
